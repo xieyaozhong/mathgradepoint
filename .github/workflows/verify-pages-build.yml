@@ -49,3 +49,18 @@ jobs:
       - name: Fail when Pages build failed
         if: steps.pages_build.outputs.status != '0'
         run: exit 1
+
+      - name: Verify public v6 release
+        if: steps.pages_build.outputs.status == '0'
+        shell: bash
+        run: |
+          for attempt in {1..18}; do
+            html=$(curl -fsSL -H 'Cache-Control: no-cache' "https://xieyaozhong.github.io/mathgradepoint/?verify=v6-${attempt}-$(date +%s)" || true)
+            if grep -q '2026-07-13-calibration-signal-v6' <<< "$html"; then
+              echo "Public GitHub Pages is serving calibration signal v6."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Public GitHub Pages did not expose the v6 release marker."
+          exit 1
