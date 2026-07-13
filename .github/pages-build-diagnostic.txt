@@ -1,0 +1,2 @@
+GitHub Pages build diagnostic trigger
+Commit target: calibration red-light release v5
