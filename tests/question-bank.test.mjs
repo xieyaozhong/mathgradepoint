@@ -79,7 +79,7 @@ test("assessment stops at ten unless calibration signals require more evidence",
   assert.match(page, /calibrationTopicBonus/);
   assert.match(page, /CALIBRATION MODE/);
   assert.match(page, /進入校正題/);
-  assert.match(page, /10 題標準掃描/);
+  assert.match(page, /評量結構：\$\{BASE_QUESTIONS\} 題標準掃描/);
 });
 
 test("calibration questions switch the top status light to red", async () => {

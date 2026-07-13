@@ -1,0 +1,51 @@
+name: Verify GitHub Pages Build
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --silent
+
+      - name: Build and capture GitHub Pages output
+        id: pages_build
+        shell: bash
+        env:
+          PAGES_BASE_PATH: /mathgradepoint
+          SITE_URL: https://xieyaozhong.github.io/mathgradepoint
+        run: |
+          set +e
+          npm run check:github > pages-build.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          tail -n 80 pages-build.log
+          exit 0
+
+      - name: Upload build diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-build-log
+          path: pages-build.log
+          if-no-files-found: error
+
+      - name: Fail when Pages build failed
+        if: steps.pages_build.outputs.status != '0'
+        run: exit 1
