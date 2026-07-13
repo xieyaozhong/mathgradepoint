@@ -46,6 +46,34 @@ jobs:
           path: pages-build.log
           if-no-files-found: error
 
-      - name: Fail when Pages build failed
-        if: steps.pages_build.outputs.status != '0'
+      - name: Probe deployed release marker
+        id: live_probe
+        shell: bash
+        run: |
+          set +e
+          status=1
+          for attempt in 1 2 3 4 5 6; do
+            curl -fsSL -D live-headers.txt "https://xieyaozhong.github.io/mathgradepoint/?release-check=${GITHUB_SHA}-${attempt}" -o live.html
+            if grep -q '2026-07-13-calibration-red-light-v5' live.html; then
+              status=0
+              break
+            fi
+            sleep 10
+          done
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          grep -o 'math-scan-release[^>]*' live.html || true
+          exit 0
+
+      - name: Upload live release probe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-release-probe
+          path: |
+            live.html
+            live-headers.txt
+          if-no-files-found: error
+
+      - name: Fail when verification failed
+        if: steps.pages_build.outputs.status != '0' || steps.live_probe.outputs.status != '0'
         run: exit 1
