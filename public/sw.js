@@ -1,10 +1,11 @@
 const CACHE_PREFIX = "math-scan-pwa";
-const CACHE_VERSION = "v2-neon-icon";
+const CACHE_VERSION = "v3-ios-png-icon";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const APP_ROOT = new URL(self.registration.scope);
 const APP_SHELL = [
   "./",
   "./manifest.webmanifest",
+  "./apple-touch-icon.png",
   "./app-icon-192.jpg",
   "./icon.svg",
   "./icon-maskable.svg",
