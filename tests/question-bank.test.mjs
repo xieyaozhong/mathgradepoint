@@ -82,6 +82,20 @@ test("assessment stops at ten unless calibration signals require more evidence",
   assert.match(page, /10 題標準掃描/);
 });
 
+test("calibration questions switch the top status light to red", async () => {
+  const [page, css] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(page, /const isCalibrationQuestion = phase === "quiz" && currentStep > BASE_QUESTIONS/);
+  assert.match(page, /isCalibrationQuestion \? "is-calibrating" : ""/);
+  assert.match(page, /CALIBRATION SIGNAL/);
+  assert.match(css, /\.system-status\.is-calibrating/);
+  assert.match(css, /\.system-status\.is-calibrating > span/);
+  assert.match(css, /background: var\(--danger\)/);
+});
+
 test("result includes granular performance analysis", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const deepAnalysis = await readFile(new URL("../app/deep-analysis-panel.tsx", import.meta.url), "utf8");
