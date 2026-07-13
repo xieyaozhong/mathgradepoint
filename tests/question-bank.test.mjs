@@ -34,3 +34,20 @@ test("diagnostic actions remain browser-local", async () => {
   assert.match(page, /localStorage/);
   assert.doesNotMatch(page, /fetch\(|openai|chatgpt/i);
 });
+
+test("result recommends one public learning route with progressive support", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /推薦學習武器/);
+  assert.match(page, /解題流程/);
+  assert.match(page, /概念整理/);
+  assert.match(page, /重點整理/);
+  assert.match(page, /方向提示/);
+  assert.match(page, /關鍵缺口/);
+  assert.match(page, /操作框架/);
+  assert.match(page, /revealedHintLevel/);
+  assert.match(page, /expectedCorrectProbability/);
+  assert.match(page, /targetSeconds/);
+  assert.match(page, /不是固定學習風格分類/);
+  assert.doesNotMatch(page, /劍系統|弓系統|杖系統|磨刀石|穩定指板|魔石/);
+});

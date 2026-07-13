@@ -701,6 +701,7 @@ button:disabled {
 .rank-card,
 .skill-card,
 .learning-card,
+.weapon-card,
 .review-card {
   padding: clamp(22px, 4vw, 38px);
 }
@@ -841,6 +842,7 @@ button:disabled {
 
 .skill-card,
 .learning-card,
+.weapon-card,
 .review-card { margin-top: 22px; }
 
 .section-heading {
@@ -940,6 +942,283 @@ button:disabled {
 
 .stage-advice strong { color: var(--cyan); font-size: 0.68rem; }
 .stage-advice p { margin: 0; }
+
+.weapon-card {
+  --weapon: #ff9f43;
+  --weapon-soft: rgb(255 159 67 / 0.11);
+  overflow: hidden;
+  border-color: var(--weapon);
+  background:
+    linear-gradient(120deg, var(--weapon-soft), transparent 42%),
+    var(--surface);
+}
+
+.weapon-stepwise {
+  --weapon: #ff9f43;
+  --weapon-soft: rgb(255 159 67 / 0.11);
+}
+
+.weapon-visual {
+  --weapon: #5bbcff;
+  --weapon-soft: rgb(91 188 255 / 0.11);
+}
+
+.weapon-toolkit {
+  --weapon: #b89cff;
+  --weapon-soft: rgb(184 156 255 / 0.11);
+}
+
+.weapon-card::before {
+  border-top-color: var(--weapon);
+  border-left-color: var(--weapon);
+}
+
+.weapon-card::after {
+  border-right-color: var(--weapon);
+  border-bottom-color: var(--weapon);
+}
+
+.weapon-card .panel-kicker { color: var(--weapon); }
+
+.weapon-overview {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+  padding-top: 24px;
+}
+
+.weapon-icon {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  color: var(--weapon);
+  filter: drop-shadow(0 0 8px var(--weapon));
+}
+
+.icon-stepwise {
+  background:
+    linear-gradient(currentColor, currentColor) 18px 53px / 13px 3px,
+    linear-gradient(currentColor, currentColor) 28px 36px / 3px 20px,
+    linear-gradient(currentColor, currentColor) 30px 35px / 13px 3px,
+    linear-gradient(currentColor, currentColor) 40px 18px / 3px 20px,
+    linear-gradient(currentColor, currentColor) 42px 17px / 13px 3px;
+  background-repeat: no-repeat;
+}
+
+.icon-stepwise i {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 3px solid currentColor;
+  background: var(--surface);
+}
+
+.icon-stepwise i:nth-child(1) { top: 47px; left: 5px; }
+.icon-stepwise i:nth-child(2) { top: 29px; left: 30px; }
+.icon-stepwise i:nth-child(3) { top: 11px; left: 54px; }
+
+.icon-visual::before,
+.icon-visual::after {
+  position: absolute;
+  content: "";
+  border: 3px solid currentColor;
+}
+
+.icon-visual::before { inset: 8px; }
+.icon-visual::after { inset: 22px; }
+.icon-visual i { position: absolute; background: currentColor; }
+.icon-visual i:nth-child(1) { top: 34px; left: 0; width: 18px; height: 4px; box-shadow: 54px 0 currentColor; }
+.icon-visual i:nth-child(2) { top: 0; left: 34px; width: 4px; height: 18px; box-shadow: 0 54px currentColor; }
+.icon-visual i:nth-child(3) { top: 32px; left: 32px; width: 8px; height: 8px; }
+
+.icon-toolkit::before {
+  position: absolute;
+  top: 25px;
+  left: 8px;
+  width: 56px;
+  height: 35px;
+  border: 3px solid currentColor;
+  content: "";
+}
+
+.icon-toolkit::after {
+  position: absolute;
+  top: 14px;
+  left: 25px;
+  width: 22px;
+  height: 12px;
+  border: 3px solid currentColor;
+  border-bottom: 0;
+  content: "";
+}
+
+.icon-toolkit i:first-child {
+  position: absolute;
+  z-index: 1;
+  top: 40px;
+  left: 17px;
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  box-shadow: 15px 0 currentColor, 30px 0 currentColor;
+}
+
+.weapon-copy > span {
+  color: var(--weapon);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.weapon-copy h3 {
+  margin: 7px 0 4px;
+  font-size: clamp(1.65rem, 4vw, 2.7rem);
+}
+
+.weapon-copy > strong { color: var(--weapon); font-size: 0.82rem; }
+
+.weapon-copy > p,
+.weapon-disclaimer {
+  color: var(--muted);
+  font-family: "Microsoft JhengHei UI", "PingFang TC", sans-serif;
+  line-height: 1.75;
+}
+
+.weapon-copy > p { max-width: 760px; margin: 12px 0; font-size: 0.76rem; }
+
+.weapon-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.weapon-chips span {
+  padding: 6px 8px;
+  border: 1px solid var(--weapon);
+  background: var(--weapon-soft);
+  color: var(--text);
+  font-size: 0.58rem;
+}
+
+.weapon-flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 22px 0 0;
+  list-style: none;
+}
+
+.weapon-flow li {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+}
+
+.weapon-flow li:not(:last-child)::after {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: -10px;
+  width: 10px;
+  height: 2px;
+  content: "";
+  background: var(--weapon);
+}
+
+.weapon-flow b { color: var(--weapon); font-size: 0.58rem; }
+.weapon-flow span { color: var(--text); font-size: 0.66rem; overflow-wrap: anywhere; }
+
+.boost-shell {
+  padding: 18px;
+  border: 1px solid var(--weapon);
+  margin-top: 18px;
+  background: rgb(6 10 18 / 0.48);
+}
+
+.boost-heading {
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  justify-content: space-between;
+  padding-bottom: 13px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.boost-heading span { color: var(--weapon); font-size: 0.55rem; font-weight: 900; letter-spacing: 0.12em; }
+.boost-heading h3 { margin: 5px 0 0; font-size: 1.05rem; }
+.boost-heading p { margin: 0; color: var(--muted); font-size: 0.62rem; }
+
+.boost-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px 0 0;
+  margin: 0;
+  list-style: none;
+}
+
+.boost-levels li {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.boost-levels li.is-revealed { border-color: var(--weapon); }
+.boost-levels li.is-locked { opacity: 0.58; }
+
+.boost-levels b {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 2px solid var(--weapon);
+  background: var(--surface-2);
+  color: var(--weapon);
+  font-size: 0.62rem;
+}
+
+.boost-levels span { display: grid; gap: 6px; min-width: 0; }
+.boost-levels strong { color: var(--text); font-size: 0.64rem; }
+.boost-levels small { color: var(--muted); font-family: "Microsoft JhengHei UI", "PingFang TC", sans-serif; font-size: 0.66rem; line-height: 1.6; }
+
+.boost-button {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 2px solid var(--weapon);
+  margin-top: 14px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.boost-button:hover { background: var(--weapon-soft); }
+.boost-button span { color: var(--weapon); }
+
+.boost-complete {
+  margin: 14px 0 0;
+  color: var(--cyan);
+  font-size: 0.64rem;
+}
+
+.weapon-disclaimer {
+  padding: 12px 14px;
+  border-left: 3px solid var(--weapon);
+  margin: 16px 0 0;
+  background: var(--weapon-soft);
+  font-size: 0.68rem;
+}
 
 .review-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding-top: 20px; }
 .review-list article { padding: 16px; border: 1px solid var(--line); background: var(--surface-2); }
@@ -1068,6 +1347,14 @@ footer {
   .skill-value { grid-column: 2; grid-row: 1; }
   .skill-track { grid-column: 1 / -1; grid-row: 2; }
   .stage-advice { grid-template-columns: 1fr; gap: 7px; }
+  .weapon-overview { grid-template-columns: 58px minmax(0, 1fr); gap: 14px; }
+  .weapon-icon { width: 56px; height: 56px; transform: scale(0.78); transform-origin: top left; }
+  .weapon-flow { grid-template-columns: 1fr; }
+  .weapon-flow li { grid-template-columns: 32px 1fr; align-items: center; }
+  .weapon-flow li:not(:last-child)::after { top: auto; right: auto; bottom: -10px; left: 16px; width: 2px; height: 10px; }
+  .boost-heading { display: grid; gap: 8px; align-items: start; }
+  .boost-levels { grid-template-columns: 1fr; }
+  .weapon-chips { display: grid; }
   .review-list { grid-template-columns: 1fr; }
   .result-actions { display: grid; }
   .result-actions .pixel-button { width: 100%; }
@@ -1150,6 +1437,7 @@ footer {
   .rank-card,
   .skill-card,
   .learning-card,
+  .weapon-card,
   .review-card {
     padding: 5mm;
   }
@@ -1219,6 +1507,7 @@ footer {
 
   .skill-card,
   .learning-card,
+  .weapon-card,
   .review-card {
     margin-top: 5mm;
   }
@@ -1264,6 +1553,69 @@ footer {
     padding: 3mm;
     margin-top: 3mm;
   }
+
+  .weapon-card {
+    --weapon: #111;
+    --weapon-soft: #fff;
+    border: 1.2pt solid #111;
+    border-left-width: 3pt;
+    background: #fff !important;
+  }
+
+  .weapon-overview {
+    grid-template-columns: 18mm 1fr;
+    gap: 4mm;
+    padding-top: 4mm;
+  }
+
+  .weapon-icon {
+    width: 16mm;
+    height: 16mm;
+    color: #111;
+    filter: none;
+    transform: scale(0.8);
+    transform-origin: top left;
+  }
+
+  .icon-stepwise i { background: #fff; }
+  .weapon-copy > span,
+  .weapon-copy > strong,
+  .weapon-flow b,
+  .boost-heading span,
+  .boost-levels b {
+    color: #111;
+  }
+
+  .weapon-copy > p,
+  .weapon-disclaimer,
+  .boost-heading p,
+  .boost-levels small {
+    color: #222;
+  }
+
+  .weapon-chips span,
+  .weapon-flow li,
+  .boost-shell,
+  .boost-levels li,
+  .boost-levels b {
+    border-color: #111;
+    background: #fff;
+  }
+
+  .weapon-flow {
+    gap: 2mm;
+    margin-top: 4mm;
+  }
+
+  .weapon-flow li { padding: 2.5mm; }
+  .weapon-flow li:not(:last-child)::after { right: -2mm; width: 2mm; background: #111; }
+
+  .boost-shell { padding: 3.5mm; margin-top: 4mm; break-inside: avoid; }
+  .boost-levels { gap: 2mm; padding-top: 3mm; }
+  .boost-levels li { grid-template-columns: 9mm 1fr; gap: 2mm; padding: 2.5mm; }
+  .boost-levels li.is-locked { opacity: 1; }
+  .boost-levels b { width: 9mm; height: 9mm; }
+  .weapon-disclaimer { border-color: #111; background: #fff; }
 
   .detail-page {
     break-before: page;
