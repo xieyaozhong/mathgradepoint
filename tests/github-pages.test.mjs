@@ -15,6 +15,9 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.ok(
     html.includes(`href="${expectedPublicPrefix}manifest.webmanifest"`),
   );
+  assert.ok(
+    html.includes(`href="${expectedPublicPrefix}app-icon-192.jpg"`),
+  );
   assert.doesNotMatch(html, /__SITE_URL__/);
 
   const manifest = JSON.parse(
@@ -23,15 +26,26 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "./?source=pwa");
   assert.equal(manifest.scope, "./");
+  assert.ok(
+    manifest.icons.some(
+      (icon) =>
+        icon.src === "app-icon-192.jpg" &&
+        icon.sizes === "192x192" &&
+        icon.type === "image/jpeg",
+    ),
+  );
   assert.ok(manifest.icons.some((icon) => icon.purpose === "maskable"));
 
   const serviceWorker = await readFile(new URL("sw.js", outputUrl), "utf8");
   assert.match(serviceWorker, /addEventListener\("install"/);
   assert.match(serviceWorker, /addEventListener\("fetch"/);
   assert.match(serviceWorker, /navigationPreload/);
+  assert.match(serviceWorker, /app-icon-192\.jpg/);
+  assert.match(serviceWorker, /v2-neon-icon/);
 
   await Promise.all([
     access(new URL("og.png", outputUrl)),
+    access(new URL("app-icon-192.jpg", outputUrl)),
     access(new URL("icon.svg", outputUrl)),
     access(new URL("icon-maskable.svg", outputUrl)),
   ]);

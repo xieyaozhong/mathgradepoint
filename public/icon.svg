@@ -1,12 +1,80 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">MATH//SCAN app icon</title>
-  <desc id="desc">A dark pixel-style mathematics scanner icon.</desc>
-  <rect width="512" height="512" rx="84" fill="#080d1a"/>
-  <rect x="34" y="34" width="444" height="444" rx="58" fill="#101a2d" stroke="#58f4ff" stroke-width="12"/>
-  <path d="M82 142V86h56M430 142V86h-56M82 370v56h56M430 370v56h-56" fill="none" stroke="#b89cff" stroke-width="18" stroke-linecap="square"/>
-  <path d="M138 330V196h38l44 72 44-72h38v134h-38v-72l-34 54h-20l-34-54v72z" fill="#f5f7ff"/>
-  <rect x="116" y="356" width="280" height="16" fill="#58f4ff"/>
-  <rect x="166" y="388" width="180" height="12" fill="#ff9f43"/>
-  <circle cx="372" cy="142" r="30" fill="#58f4ff"/>
-  <path d="M356 142h32M372 126v32" stroke="#080d1a" stroke-width="10" stroke-linecap="square"/>
+  <desc id="desc">A neon mathematics scanner with a cyan and violet letter M.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#03091d"/>
+      <stop offset="0.55" stop-color="#07112e"/>
+      <stop offset="1" stop-color="#090622"/>
+    </linearGradient>
+    <linearGradient id="m" x1="132" y1="250" x2="380" y2="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#39f7ff"/>
+      <stop offset="0.43" stop-color="#19a8ff"/>
+      <stop offset="0.52" stop-color="#f8fbff"/>
+      <stop offset="0.62" stop-color="#a96cff"/>
+      <stop offset="1" stop-color="#dd54ff"/>
+    </linearGradient>
+    <linearGradient id="scan" x1="72" y1="256" x2="440" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#36f5ff"/>
+      <stop offset="0.5" stop-color="#2777ff"/>
+      <stop offset="1" stop-color="#e277ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="45%" r="58%">
+      <stop offset="0" stop-color="#3349b9" stop-opacity="0.26"/>
+      <stop offset="0.58" stop-color="#17134b" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse">
+      <path d="M32 0H0V32" fill="none" stroke="#1786cf" stroke-opacity="0.13" stroke-width="1"/>
+    </pattern>
+    <filter id="cyanGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGlow" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="14" stdDeviation="10" flood-color="#000" flood-opacity="0.62"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="94" fill="#01030b"/>
+  <rect x="9" y="9" width="494" height="494" rx="86" fill="url(#bg)" stroke="#242d72" stroke-width="7"/>
+  <rect x="28" y="28" width="456" height="456" rx="70" fill="url(#glow)"/>
+  <rect x="52" y="52" width="408" height="408" rx="52" fill="url(#grid)" opacity="0.72"/>
+
+  <circle cx="256" cy="260" r="176" fill="none" stroke="url(#scan)" stroke-width="3" opacity="0.46"/>
+  <circle cx="256" cy="260" r="151" fill="none" stroke="url(#scan)" stroke-width="2" stroke-dasharray="2 13" stroke-linecap="round" opacity="0.45"/>
+  <path d="M256 58v38M256 424v30M58 260h38M416 260h38" stroke="url(#scan)" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+
+  <g fill="none" stroke-width="13" stroke-linecap="round" filter="url(#softGlow)">
+    <path d="M72 142V92q0-20 20-20h50" stroke="#38f5ff"/>
+    <path d="M370 72h50q20 0 20 20v50" stroke="#e47aff"/>
+    <path d="M72 370v50q0 20 20 20h50" stroke="#38f5ff"/>
+    <path d="M370 440h50q20 0 20-20v-50" stroke="#e47aff"/>
+  </g>
+
+  <g filter="url(#softGlow)">
+    <path d="M256 118v54M229 145h54" stroke="#ffb322" stroke-width="15" stroke-linecap="round"/>
+    <path d="M256 120v50M231 145h50" stroke="#fff27b" stroke-width="5" stroke-linecap="round"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <path d="M143 349V188L256 301L369 188V349" fill="none" stroke="#060b24" stroke-width="92" stroke-linecap="square" stroke-linejoin="bevel" opacity="0.85"/>
+    <path d="M143 349V188L256 301L369 188V349" fill="none" stroke="url(#m)" stroke-width="73" stroke-linecap="square" stroke-linejoin="bevel" filter="url(#cyanGlow)"/>
+    <path d="M145 199L256 310L367 199" fill="none" stroke="#ffffff" stroke-opacity="0.48" stroke-width="8" stroke-linecap="square" stroke-linejoin="bevel"/>
+    <path d="M143 349V188" stroke="#4df8ff" stroke-opacity="0.62" stroke-width="7"/>
+    <path d="M369 188V349" stroke="#f28cff" stroke-opacity="0.58" stroke-width="7"/>
+  </g>
+
+  <g fill="#35f4ff" filter="url(#softGlow)">
+    <rect x="112" y="310" width="20" height="20" rx="3"/>
+    <rect x="132" y="331" width="16" height="16" rx="3"/>
+    <rect x="101" y="344" width="13" height="13" rx="2"/>
+    <rect x="121" y="366" width="10" height="10" rx="2"/>
+  </g>
+
+  <path d="M68 461c89 29 287 36 376-12" fill="none" stroke="#67dfff" stroke-opacity="0.12" stroke-width="3"/>
 </svg>

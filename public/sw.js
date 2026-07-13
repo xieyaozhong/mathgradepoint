@@ -1,10 +1,11 @@
 const CACHE_PREFIX = "math-scan-pwa";
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2-neon-icon";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const APP_ROOT = new URL(self.registration.scope);
 const APP_SHELL = [
   "./",
   "./manifest.webmanifest",
+  "./app-icon-192.jpg",
   "./icon.svg",
   "./icon-maskable.svg",
   "./og.png",
