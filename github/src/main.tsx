@@ -14,3 +14,20 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    const manifestLink = document.querySelector<HTMLLinkElement>(
+      'link[rel="manifest"]',
+    );
+    const appBaseUrl = new URL("./", manifestLink?.href ?? document.baseURI);
+    const serviceWorkerUrl = new URL("sw.js", appBaseUrl);
+
+    navigator.serviceWorker
+      .register(serviceWorkerUrl.toString(), { scope: appBaseUrl.pathname })
+      .then((registration) => registration.update())
+      .catch((error: unknown) => {
+        console.warn("PWA service worker registration failed", error);
+      });
+  });
+}

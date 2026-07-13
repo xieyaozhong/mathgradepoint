@@ -1,0 +1,44 @@
+{
+  "id": "./",
+  "name": "MATH//SCAN 數學等級評比器",
+  "short_name": "MATH//SCAN",
+  "description": "透過多元自適應數學關卡，估算小四到碩士核心的能力區間，並產生個人診斷單。",
+  "lang": "zh-Hant",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#080d1a",
+  "theme_color": "#080d1a",
+  "categories": ["education", "utilities"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "開始數學評量",
+      "short_name": "開始評量",
+      "description": "開啟 MATH//SCAN 並開始一輪能力評量",
+      "url": "./?source=shortcut",
+      "icons": [
+        {
+          "src": "icon.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
