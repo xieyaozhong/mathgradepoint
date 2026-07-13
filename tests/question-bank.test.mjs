@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 await import("../scripts/apply-analysis-upgrade.mjs");
+await import("../scripts/apply-calibration-signal-fix.mjs");
 
 const coreSourceUrl = new URL("../app/math-data.ts", import.meta.url);
 const extraSourceUrl = new URL("../app/extra-questions.ts", import.meta.url);
@@ -82,17 +83,23 @@ test("assessment stops at ten unless calibration signals require more evidence",
   assert.match(page, /評量結構：\$\{BASE_QUESTIONS\} 題標準掃描/);
 });
 
-test("calibration questions switch the top status light to red", async () => {
+test("calibration signal turns red as soon as extra evidence is required", async () => {
   const [page, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
   ]);
 
-  assert.match(page, /const isCalibrationQuestion = phase === "quiz" && currentStep > BASE_QUESTIONS/);
-  assert.match(page, /isCalibrationQuestion \? "is-calibrating" : ""/);
+  assert.match(page, /const calibrationRequired =/);
+  assert.match(page, /quizState\.answers\.length >= BASE_QUESTIONS/);
+  assert.match(page, /!shouldStop\(quizState\)/);
+  assert.match(page, /currentStep > BASE_QUESTIONS \|\| \(Boolean\(feedback\) && calibrationRequired\)/);
+  assert.match(page, /topbar screen-only \$\{isCalibrationQuestion \? "is-calibrating" : ""\}/);
+  assert.match(page, /className="calibration-alert"/);
+  assert.match(page, /校正模式啟動：系統正在確認能力區間/);
   assert.match(page, /CALIBRATION SIGNAL/);
-  assert.match(css, /\.system-status\.is-calibrating/);
+  assert.match(css, /\.topbar\.is-calibrating/);
   assert.match(css, /\.system-status\.is-calibrating > span/);
+  assert.match(css, /\.calibration-alert-light/);
   assert.match(css, /background: var\(--danger\)/);
 });
 
