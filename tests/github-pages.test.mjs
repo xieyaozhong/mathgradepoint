@@ -18,6 +18,9 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.ok(
     html.includes(`href="${expectedPublicPrefix}app-icon-192.jpg"`),
   );
+  assert.ok(
+    html.includes(`href="${expectedPublicPrefix}apple-touch-icon.png"`),
+  );
   assert.doesNotMatch(html, /__SITE_URL__/);
 
   const manifest = JSON.parse(
@@ -26,6 +29,14 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.equal(manifest.display, "standalone");
   assert.equal(manifest.start_url, "./?source=pwa");
   assert.equal(manifest.scope, "./");
+  assert.ok(
+    manifest.icons.some(
+      (icon) =>
+        icon.src === "apple-touch-icon.png" &&
+        icon.sizes === "180x180" &&
+        icon.type === "image/png",
+    ),
+  );
   assert.ok(
     manifest.icons.some(
       (icon) =>
@@ -40,11 +51,13 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.match(serviceWorker, /addEventListener\("install"/);
   assert.match(serviceWorker, /addEventListener\("fetch"/);
   assert.match(serviceWorker, /navigationPreload/);
+  assert.match(serviceWorker, /apple-touch-icon\.png/);
   assert.match(serviceWorker, /app-icon-192\.jpg/);
-  assert.match(serviceWorker, /v2-neon-icon/);
+  assert.match(serviceWorker, /v3-ios-png-icon/);
 
   await Promise.all([
     access(new URL("og.png", outputUrl)),
+    access(new URL("apple-touch-icon.png", outputUrl)),
     access(new URL("app-icon-192.jpg", outputUrl)),
     access(new URL("icon.svg", outputUrl)),
     access(new URL("icon-maskable.svg", outputUrl)),
