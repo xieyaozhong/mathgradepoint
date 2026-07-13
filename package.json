@@ -9,10 +9,10 @@
     "dev": "vinext dev --port 4173",
     "build": "vinext build",
     "build:github": "vite build --config vite.github.config.ts",
-    "check:github": "npm run build:github && node --test tests/github-pages.test.mjs",
+    "check:github": "npm run build:github && node --test --test-isolation=none tests/github-pages.test.mjs tests/question-bank.test.mjs",
     "preview:github": "vite preview --config vite.github.config.ts",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "test": "npm run build && node --test --test-isolation=none tests/rendered-html.test.mjs tests/question-bank.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

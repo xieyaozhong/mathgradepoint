@@ -1,36 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  BANK,
+  FORMAT_LABELS,
+  LEVELS,
+  SKILL_GROUPS,
+  TOPIC_LABELS,
+  type Question,
+  type QuestionFormat,
+  type Topic,
+} from "./math-data";
 
 type Phase = "intro" | "quiz" | "result";
-type Topic =
-  | "arithmetic"
-  | "geometry"
-  | "algebra"
-  | "functions"
-  | "trigonometry"
-  | "calculus"
-  | "linear-algebra"
-  | "analysis";
-
-type Question = {
-  id: string;
-  level: number;
-  topic: Topic;
-  prompt: string;
-  choices: readonly string[];
-  correctIndex: number;
-  rationale: string;
-  b: number;
-  a: number;
-};
 
 type AnswerRecord = {
   questionId: string;
   correct: boolean;
   selected: string;
+  correctAnswer: string;
+  rationale: string;
   topic: Topic;
+  format: QuestionFormat;
   level: number;
+  elapsedSeconds: number;
 };
 
 type QuizState = {
@@ -38,72 +31,23 @@ type QuizState = {
   answers: AnswerRecord[];
   askedIds: string[];
   topicCounts: Partial<Record<Topic, number>>;
+  formatCounts: Partial<Record<QuestionFormat, number>>;
 };
 
-const LEVELS = [
-  { short: "小四", full: "小學四年級", rank: "基礎探路者", blurb: "重要的數感與基礎運算已經成形。下一步可加強分數、多步驟問題與圖形判讀。" },
-  { short: "小五", full: "小學五年級", rank: "運算行者", blurb: "你能處理分數、小數與面積問題。持續練習估算與拆解題意，會讓判斷更快、更穩。" },
-  { short: "小六", full: "小學六年級", rank: "比例偵察員", blurb: "你對比例、百分率與生活數學已有掌握。接著熟悉未知數，就能穩定踏入代數世界。" },
-  { short: "國一", full: "國中一年級", rank: "代數新星", blurb: "你已能用符號描述數量與規律。強化正負數、方程式與座標，解題視野會明顯擴張。" },
-  { short: "國二", full: "國中二年級", rank: "方程解碼者", blurb: "你能運用方程式、比例與幾何性質。下一步是把複雜條件更精準地翻譯成式子。" },
-  { short: "國三", full: "國中三年級", rank: "函數追跡者", blurb: "你開始能從圖形與公式辨認變化關係。強化跨章節整合，就能向高中數學推進。" },
-  { short: "高一", full: "高中一年級", rank: "模型築構者", blurb: "你能用函數與代數工具建立模型。深化圖形、數列與邏輯表達，方法會更精準。" },
-  { short: "高二", full: "高中二年級", rank: "函數航行者", blurb: "你能在函數、三角與空間關係間切換。持續鍛鍊多步推導，複雜題目會更可控。" },
-  { short: "高三", full: "高中三年級", rank: "微積分先鋒", blurb: "你已能用進階代數與微積分初步概念分析變化。下一步是理解方法為何成立。" },
-  { short: "大學基礎", full: "大學基礎", rank: "理論鍛造者", blurb: "你具備大學常見的抽象思考與數學工具，能處理微積分與線性代數的核心概念。" },
-  { short: "大學進階", full: "大學進階", rank: "結構解析者", blurb: "你已能處理收斂、特徵結構等進階概念。加強嚴謹證明與跨領域建模會更加完整。" },
-  { short: "碩士核心", full: "碩士核心", rank: "抽象領航者", blurb: "你能辨認高階結構、定理條件與嚴謹推導。真正的進階，也在於說清楚為什麼成立。" },
-] as const;
-
-const TOPIC_LABELS: Record<Topic, string> = {
-  arithmetic: "數感運算",
-  geometry: "幾何空間",
-  algebra: "代數推理",
-  functions: "函數規律",
-  trigonometry: "三角關係",
-  calculus: "微積分",
-  "linear-algebra": "線性代數",
-  analysis: "分析與證明",
+type SkillDiagnostic = {
+  label: string;
+  recommendation: string;
+  sampleCount: number;
+  correctCount: number;
+  accuracy: number | null;
+  averageSeconds: number | null;
+  status: "穩定掌握" | "基本掌握" | "發展中" | "建議補強" | "待進一步確認" | "尚未評量";
+  evidence: "證據較充足" | "初步訊號" | "單題取樣" | "未取樣";
 };
 
-const q = (
-  id: string,
-  level: number,
-  topic: Topic,
-  prompt: string,
-  choices: readonly string[],
-  correctIndex: number,
-  rationale: string,
-  a = 1.28,
-): Question => ({ id, level, topic, prompt, choices, correctIndex, rationale, b: level, a });
-
-const BANK: Question[] = [
-  q("g4-1", 1, "arithmetic", "28 的 3/4 是多少？", ["18", "21", "24", "25"], 1, "28 ÷ 4 × 3 = 21。"),
-  q("g4-2", 1, "arithmetic", "2 小時 35 分鐘再加 50 分鐘，共多久？", ["2 小時 45 分", "3 小時 15 分", "3 小時 25 分", "3 小時 35 分"], 2, "35 + 50 = 85 分，也就是 1 小時 25 分；合計 3 小時 25 分。"),
-  q("g5-1", 2, "arithmetic", "2.4 × 0.35 等於多少？", ["0.084", "0.84", "8.4", "84"], 1, "24 × 35 = 840，再放回三位小數，得到 0.840。"),
-  q("g5-2", 2, "geometry", "一個長方形面積是 96 平方公分，寬是 8 公分。它的周長是多少？", ["32 公分", "40 公分", "48 公分", "96 公分"], 1, "長為 96 ÷ 8 = 12；周長為 2 × (12 + 8) = 40。"),
-  q("g6-1", 3, "arithmetic", "紅球與藍球的數量比是 3:5，共有 32 顆。紅球有幾顆？", ["12", "15", "20", "24"], 0, "共有 8 份，每份 4 顆；紅球為 3 × 4 = 12 顆。"),
-  q("g6-2", 3, "arithmetic", "一件商品從 250 元降到 200 元，降價百分比是多少？", ["10%", "20%", "25%", "50%"], 1, "降價 50 元，50 ÷ 250 = 20%。"),
-  q("j7-1", 4, "algebra", "若 3(2x − 1) = 15，則 x =？", ["2", "3", "4", "6"], 1, "6x − 3 = 15，所以 6x = 18，x = 3。"),
-  q("j7-2", 4, "arithmetic", "算式 (−2)³ + 5 × 2 的值是多少？", ["−18", "−2", "2", "18"], 2, "(−2)³ = −8，−8 + 10 = 2。"),
-  q("j8-1", 5, "functions", "通過點 (2, 5) 與 (−1, −1) 的直線斜率是多少？", ["−2", "−1/2", "1/2", "2"], 3, "斜率為 [5 − (−1)] ÷ [2 − (−1)] = 6 ÷ 3 = 2。"),
-  q("j8-2", 5, "algebra", "化簡 √50 − √8。", ["√2", "2√2", "3√2", "7√2"], 2, "√50 = 5√2，√8 = 2√2，相減得到 3√2。"),
-  q("j9-1", 6, "algebra", "方程式 x² − 5x + 6 = 0 的兩個實根是？", ["−3、−2", "2、3", "−2、−3", "1、6"], 1, "(x − 2)(x − 3) = 0，所以兩根為 2、3。"),
-  q("j9-2", 6, "geometry", "一直角三角形的兩股長分別是 6 與 8，斜邊長是多少？", ["7", "10", "12", "14"], 1, "由畢氏定理，斜邊為 √(6² + 8²) = √100 = 10。"),
-  q("s10-1", 7, "functions", "函數 f(x) = 2x² − 8x + 3 的最小值是多少？", ["−8", "−5", "3", "5"], 1, "頂點在 x = 2，f(2) = 8 − 16 + 3 = −5。"),
-  q("s10-2", 7, "algebra", "等比數列首項為 3、公比為 2，第 6 項是多少？", ["48", "64", "96", "192"], 2, "a₆ = 3 × 2⁵ = 96。"),
-  q("s11-1", 8, "trigonometry", "若 θ 在第二象限且 sin θ = 3/5，則 cos θ =？", ["4/5", "−4/5", "3/5", "−3/5"], 1, "由 sin²θ + cos²θ = 1 得 |cos θ| = 4/5；第二象限的餘弦為負。"),
-  q("s11-2", 8, "functions", "解方程式 log₂(x − 1) + log₂(x + 1) = 3。", ["−3", "−1", "1", "3"], 3, "定義域要求 x > 1；(x−1)(x+1)=8，得到 x²=9，唯一合格解是 3。"),
-  q("s12-1", 9, "calculus", "若 f(x) = x³ − 3x² + 2，則 f′(3) =？", ["0", "3", "9", "18"], 2, "f′(x)=3x²−6x，代入 3 得 27−18=9。"),
-  q("s12-2", 9, "calculus", "定積分 ∫₀² (3x² + 1) dx 的值是多少？", ["8", "9", "10", "12"], 2, "原函數為 x³+x；代入上下限得到 8+2=10。"),
-  q("u1-1", 10, "linear-algebra", "矩陣 [[2, 1], [3, 4]] 的行列式是多少？", ["5", "8", "11", "−5"], 0, "行列式為 2×4 − 1×3 = 5。"),
-  q("u1-2", 10, "calculus", "極限 lim(x→0) (1 − cos x) / x² 等於多少？", ["0", "1/2", "1", "不存在"], 1, "由 1−cos x = 2sin²(x/2)，極限為 1/2。"),
-  q("u2-1", 11, "analysis", "無窮級數 Σ(n=1→∞) 1/[n(n+1)] 的和是多少？", ["1/2", "1", "π²/6", "發散"], 1, "1/[n(n+1)] = 1/n − 1/(n+1)，部分和望遠鏡消去後趨近 1。"),
-  q("u2-2", 11, "linear-algebra", "實對稱矩陣 [[2, 1], [1, 2]] 的最大特徵值是多少？", ["1", "2", "3", "4"], 2, "特徵多項式是 (2−λ)²−1，特徵值為 1、3。"),
-  q("m-1", 12, "analysis", "在完備度量空間中，若 T 滿足 d(Tx, Ty) ≤ q·d(x, y)，其中 0 < q < 1，則必然成立的是？", ["T 有唯一不動點，且任意起點的反覆迭代都收斂到它", "T 至少有一個不動點，但可能不唯一", "只有空間有限時才有不動點", "T 不可能有不動點"], 0, "這是 Banach 不動點定理：壓縮映射有唯一不動點，Picard 迭代會收斂到它。", 1.35),
-  q("m-2", 12, "analysis", "設 fₙ 幾乎處處收斂到 f，且對所有 n 有 |fₙ| ≤ g，其中 g 可積。下列何者必然成立？", ["fₙ 一致收斂到 f", "fₙ 在每一點都收斂到 f", "∫|fₙ − f| → 0", "sup |fₙ − f| → 0"], 2, "由支配收斂定理，且 |fₙ−f|≤2g，可得 L¹ 收斂。", 1.35),
-];
-
+const MIN_QUESTIONS = 14;
+const MAX_QUESTIONS = 16;
+const RECENT_ITEMS_KEY = "math-scan-recent-items-v2";
 const THETA_GRID = Array.from({ length: 111 }, (_, index) => 1 + index / 10);
 
 function createInitialState(): QuizState {
@@ -112,11 +56,13 @@ function createInitialState(): QuizState {
     answers: [],
     askedIds: [],
     topicCounts: {},
+    formatCounts: {},
   };
 }
 
 function normalize(values: number[]) {
   const total = values.reduce((sum, value) => sum + value, 0);
+  if (!Number.isFinite(total) || total <= 0) return values.map(() => 1 / values.length);
   return values.map((value) => value / total);
 }
 
@@ -141,16 +87,49 @@ function expectedEntropy(state: QuizState, item: Question) {
   return chanceRight * entropy(ifRight) + (1 - chanceRight) * entropy(ifWrong);
 }
 
-function chooseNextQuestion(state: QuizState) {
+function chooseNextQuestion(state: QuizState, recentIds: string[]) {
   const mean = posteriorMean(state);
   const unused = BANK.filter((item) => !state.askedIds.includes(item.id));
   const nearby = unused.filter((item) => Math.abs(item.b - mean) <= 3);
-  const candidates = nearby.length ? nearby : unused;
-  return candidates.reduce((best, item) => {
-    const itemScore = expectedEntropy(state, item) + 0.05 * (state.topicCounts[item.topic] ?? 0);
-    const bestScore = expectedEntropy(state, best) + 0.05 * (state.topicCounts[best.topic] ?? 0);
-    return itemScore < bestScore ? item : best;
+  const candidates = nearby.length >= 5 ? nearby : unused;
+  const lastTopic = state.answers.at(-1)?.topic;
+  const currentEntropy = entropy(state.posterior);
+
+  const scored = candidates.map((item) => {
+    const informationGain = currentEntropy - expectedEntropy(state, item);
+    const unseenTopicBonus = state.topicCounts[item.topic] ? 0 : 0.13;
+    const unseenFormatBonus = state.formatCounts[item.format] ? 0 : 0.08;
+    const topicRepeatPenalty = 0.07 * (state.topicCounts[item.topic] ?? 0);
+    const formatRepeatPenalty = 0.04 * (state.formatCounts[item.format] ?? 0);
+    const consecutivePenalty = lastTopic === item.topic ? 0.15 : 0;
+    const recentExposurePenalty = recentIds.includes(item.id) ? 0.11 : 0;
+    const distancePenalty = 0.008 * Math.abs(item.b - mean);
+    const jitter = Math.random() * 0.025;
+    return {
+      item,
+      utility:
+        informationGain +
+        unseenTopicBonus +
+        unseenFormatBonus +
+        jitter -
+        topicRepeatPenalty -
+        formatRepeatPenalty -
+        consecutivePenalty -
+        recentExposurePenalty -
+        distancePenalty,
+    };
   });
+
+  const pool = scored.sort((left, right) => right.utility - left.utility).slice(0, 5);
+  const maxUtility = pool[0].utility;
+  const weights = pool.map((candidate) => Math.exp((candidate.utility - maxUtility) / 0.08));
+  const target = Math.random() * weights.reduce((sum, weight) => sum + weight, 0);
+  let cumulative = 0;
+  for (let index = 0; index < pool.length; index += 1) {
+    cumulative += weights[index];
+    if (cumulative >= target) return pool[index].item;
+  }
+  return pool[0].item;
 }
 
 function updatePosterior(state: QuizState, item: Question, correct: boolean) {
@@ -172,9 +151,9 @@ function quantile(state: QuizState, target: number) {
 }
 
 function shouldStop(state: QuizState) {
-  if (state.answers.length < 10) return false;
-  if (state.answers.length >= 12) return true;
-  return quantile(state, 0.9) - quantile(state, 0.1) <= 3;
+  if (state.answers.length < MIN_QUESTIONS) return false;
+  if (state.answers.length >= MAX_QUESTIONS) return true;
+  return quantile(state, 0.9) - quantile(state, 0.1) <= 2.6;
 }
 
 function levelIndexFromTheta(theta: number) {
@@ -196,8 +175,8 @@ function makeResult(state: QuizState) {
     ability,
     low,
     high,
-    confidence: width <= 1.8 ? "高" : width <= 3 ? "中" : "探索中",
-    score: Math.round(((ability - 1) / 11) * 100),
+    confidence: width <= 1.8 ? "高" : width <= 2.8 ? "中" : "初步",
+    score: Math.max(0, Math.min(100, Math.round(((ability - 1) / 11) * 100))),
     correctCount: state.answers.filter((answer) => answer.correct).length,
   };
 }
@@ -209,6 +188,58 @@ function shuffleChoices(item: Question) {
     [choices[index], choices[swapIndex]] = [choices[swapIndex], choices[index]];
   }
   return choices;
+}
+
+function makeSkillDiagnostics(answers: AnswerRecord[]): SkillDiagnostic[] {
+  return SKILL_GROUPS.map((group) => {
+    const sampled = answers.filter((answer) => group.topics.includes(answer.topic));
+    const correctCount = sampled.filter((answer) => answer.correct).length;
+    const accuracy = sampled.length ? Math.round((correctCount / sampled.length) * 100) : null;
+    const averageSeconds = sampled.length
+      ? Math.round(sampled.reduce((sum, answer) => sum + answer.elapsedSeconds, 0) / sampled.length)
+      : null;
+    const evidence = sampled.length >= 3 ? "證據較充足" : sampled.length === 2 ? "初步訊號" : sampled.length === 1 ? "單題取樣" : "未取樣";
+
+    let status: SkillDiagnostic["status"] = "尚未評量";
+    if (sampled.length === 1) status = "待進一步確認";
+    else if (accuracy !== null && accuracy >= 80 && sampled.length >= 3) status = "穩定掌握";
+    else if (accuracy !== null && accuracy >= 60) status = "基本掌握";
+    else if (accuracy !== null && accuracy >= 40) status = "發展中";
+    else if (accuracy !== null) status = "建議補強";
+
+    return {
+      label: group.label,
+      recommendation: group.recommendation,
+      sampleCount: sampled.length,
+      correctCount,
+      accuracy,
+      averageSeconds,
+      status,
+      evidence,
+    };
+  });
+}
+
+function formatDuration(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes ? `${minutes} 分 ${String(seconds).padStart(2, "0")} 秒` : `${seconds} 秒`;
+}
+
+function stageAdvice(levelIndex: number) {
+  if (levelIndex <= 2) return "先建立數感、分數與比例直覺，練習用圖、表格和算式表達同一個問題。";
+  if (levelIndex <= 5) return "加強未知數、方程式、函數與幾何推理，養成逐步列式和驗算的習慣。";
+  if (levelIndex <= 8) return "整合代數、函數、向量、機率與微積分初步，練習跨章節問題與完整推導。";
+  if (levelIndex <= 10) return "深化微積分、線性代數與機率統計，作答時明確寫出定義、條件和證明結構。";
+  return "加強抽象結構、模型假設與數學論證，並練習清楚說明方法的適用邊界。";
+}
+
+function diagnosticClass(status: SkillDiagnostic["status"]) {
+  if (status === "穩定掌握") return "stable";
+  if (status === "基本掌握") return "basic";
+  if (status === "發展中") return "developing";
+  if (status === "建議補強") return "priority";
+  return "pending";
 }
 
 function LevelLadder({ activeLevel, resultLevel }: { activeLevel?: number; resultLevel?: number }) {
@@ -236,14 +267,6 @@ function LevelLadder({ activeLevel, resultLevel }: { activeLevel?: number; resul
   );
 }
 
-const SKILL_GROUPS: { label: string; topics: Topic[] }[] = [
-  { label: "數感與運算", topics: ["arithmetic"] },
-  { label: "代數與函數", topics: ["algebra", "functions"] },
-  { label: "幾何與三角", topics: ["geometry", "trigonometry"] },
-  { label: "微積分", topics: ["calculus"] },
-  { label: "抽象與證明", topics: ["linear-algebra", "analysis"] },
-];
-
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("intro");
   const [quizState, setQuizState] = useState<QuizState>(() => createInitialState());
@@ -251,46 +274,160 @@ export default function Home() {
   const [choiceOrder, setChoiceOrder] = useState<{ text: string; correct: boolean }[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
+  const [learnerName, setLearnerName] = useState("");
+  const [reportGeneratedAt, setReportGeneratedAt] = useState<Date | null>(null);
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const questionStartedAtRef = useRef(0);
+  const recentQuestionIdsRef = useRef<string[]>([]);
 
   const result = useMemo(() => (phase === "result" ? makeResult(quizState) : null), [phase, quizState]);
+  const diagnostics = useMemo(() => makeSkillDiagnostics(quizState.answers), [quizState.answers]);
+  const totalAnswerSeconds = useMemo(
+    () => quizState.answers.reduce((sum, answer) => sum + answer.elapsedSeconds, 0),
+    [quizState.answers],
+  );
+  const coveredFormatCount = useMemo(
+    () => new Set(quizState.answers.map((answer) => answer.format)).size,
+    [quizState.answers],
+  );
+  const prioritizedDiagnostics = useMemo(
+    () =>
+      diagnostics
+        .filter((item) => item.sampleCount > 0)
+        .sort((left, right) => {
+          const evidenceDifference = Number(right.sampleCount >= 2) - Number(left.sampleCount >= 2);
+          if (evidenceDifference) return evidenceDifference;
+          return (left.accuracy ?? 101) - (right.accuracy ?? 101) || right.sampleCount - left.sampleCount;
+        })
+        .slice(0, 3),
+    [diagnostics],
+  );
+  const strongestDiagnostic = useMemo(
+    () =>
+      diagnostics
+        .filter((item) => item.sampleCount >= 2)
+        .sort((left, right) => (right.accuracy ?? -1) - (left.accuracy ?? -1) || right.sampleCount - left.sampleCount)[0] ?? null,
+    [diagnostics],
+  );
+  const reportId = useMemo(
+    () => (reportGeneratedAt ? `MS-${reportGeneratedAt.getTime().toString(36).toUpperCase()}` : ""),
+    [reportGeneratedAt],
+  );
 
   const presentQuestion = (item: Question) => {
     setQuestion(item);
     setChoiceOrder(shuffleChoices(item));
     setSelectedIndex(null);
     setFeedback(null);
+    questionStartedAtRef.current = window.performance.now();
   };
 
   const startQuiz = () => {
     const initial = createInitialState();
+    let recentIds: string[] = [];
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(RECENT_ITEMS_KEY) ?? "[]");
+      if (Array.isArray(saved)) recentIds = saved.filter((value): value is string => typeof value === "string").slice(-36);
+    } catch {
+      recentIds = [];
+    }
+    recentQuestionIdsRef.current = recentIds;
     setQuizState(initial);
+    setReportGeneratedAt(null);
+    setLearnerName("");
     setPhase("quiz");
-    presentQuestion(chooseNextQuestion(initial));
+    presentQuestion(chooseNextQuestion(initial, recentIds));
   };
 
   const submitAnswer = () => {
     if (!question || selectedIndex === null || feedback) return;
     const selected = choiceOrder[selectedIndex];
     const posterior = updatePosterior(quizState, question, selected.correct);
+    const elapsedSeconds = Math.max(1, Math.round((window.performance.now() - questionStartedAtRef.current) / 1000));
     const nextState: QuizState = {
       posterior,
-      answers: [...quizState.answers, { questionId: question.id, correct: selected.correct, selected: selected.text, topic: question.topic, level: question.level }],
+      answers: [
+        ...quizState.answers,
+        {
+          questionId: question.id,
+          correct: selected.correct,
+          selected: selected.text,
+          correctAnswer: question.choices[question.correctIndex],
+          rationale: question.rationale,
+          topic: question.topic,
+          format: question.format,
+          level: question.level,
+          elapsedSeconds,
+        },
+      ],
       askedIds: [...quizState.askedIds, question.id],
       topicCounts: { ...quizState.topicCounts, [question.topic]: (quizState.topicCounts[question.topic] ?? 0) + 1 },
+      formatCounts: { ...quizState.formatCounts, [question.format]: (quizState.formatCounts[question.format] ?? 0) + 1 },
     };
     setQuizState(nextState);
     setFeedback(selected.correct ? "correct" : "incorrect");
   };
 
+  const persistRecentItems = () => {
+    const combined = [...recentQuestionIdsRef.current, ...quizState.askedIds];
+    const latestUnique = combined.filter((id, index) => combined.lastIndexOf(id) === index).slice(-36);
+    recentQuestionIdsRef.current = latestUnique;
+    try {
+      window.localStorage.setItem(RECENT_ITEMS_KEY, JSON.stringify(latestUnique));
+    } catch {
+      // The assessment still works when private browsing blocks local storage.
+    }
+  };
+
   const continueQuiz = () => {
     if (!feedback) return;
     if (shouldStop(quizState)) {
+      persistRecentItems();
+      setReportGeneratedAt(new Date());
       setPhase("result");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    presentQuestion(chooseNextQuestion(quizState));
+    presentQuestion(chooseNextQuestion(quizState, recentQuestionIdsRef.current));
+  };
+
+  const downloadDiagnostic = () => {
+    if (!result || !reportGeneratedAt) return;
+    const reviewItems = quizState.answers.filter((answer) => !answer.correct);
+    const lines = [
+      "數學能力診斷單｜MATH//SCAN",
+      `報告編號：${reportId}`,
+      `姓名／代號：${learnerName.trim() || "未填寫"}`,
+      `產生日期：${reportGeneratedAt.toLocaleString("zh-TW")}`,
+      `推定等級：${LEVELS[result.levelIndex].full}（${LEVELS[result.levelIndex].rank}）`,
+      `可能區間：${LEVELS[levelIndexFromTheta(result.low)].short} — ${LEVELS[levelIndexFromTheta(result.high)].short}`,
+      `結果穩定度：${result.confidence}`,
+      `作答紀錄：${result.correctCount} / ${quizState.answers.length} 命中`,
+      `作答計時：${formatDuration(totalAnswerSeconds)}`,
+      "",
+      "能力地圖",
+      ...diagnostics.map((item) => `${item.label}：${item.status}｜${item.evidence}｜${item.accuracy === null ? "未取樣" : `${item.correctCount}/${item.sampleCount}（${item.accuracy}%）`}`),
+      "",
+      "建議學習路線",
+      ...prioritizedDiagnostics.map((item, index) => `${index + 1}. ${item.label}：${item.recommendation}`),
+      `階段建議：${stageAdvice(result.levelIndex)}`,
+      "",
+      "錯題回顧",
+      ...(reviewItems.length
+        ? reviewItems.map((answer, index) => `${index + 1}. [${TOPIC_LABELS[answer.topic]}／${LEVELS[answer.level - 1].short}] ${BANK.find((item) => item.id === answer.questionId)?.prompt}\n   我的答案：${answer.selected}\n   參考答案：${answer.correctAnswer}\n   關鍵觀念：${answer.rationale}`)
+        : ["本次沒有錯題；建議以變化題再次確認概念是否穩定。"]),
+      "",
+      "說明：本診斷僅供自我了解與學習規劃，不等同學校成績、正式檢定、入學資格或學位認證。",
+    ];
+    const blob = new Blob([`\uFEFF${lines.join("\n")}`], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `math-scan-${reportId}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   useEffect(() => {
@@ -301,9 +438,7 @@ export default function Home() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (phase !== "quiz" || !question) return;
       if ((event.target as HTMLElement).tagName === "BUTTON") return;
-      if (!feedback && ["1", "2", "3", "4"].includes(event.key)) {
-        setSelectedIndex(Number(event.key) - 1);
-      }
+      if (!feedback && ["1", "2", "3", "4"].includes(event.key)) setSelectedIndex(Number(event.key) - 1);
       if (event.key === "Enter") {
         if (feedback) continueQuiz();
         else submitAnswer();
@@ -314,11 +449,17 @@ export default function Home() {
   });
 
   const activeLevel = phase === "quiz" ? question?.level : undefined;
-  const currentStep = Math.min(quizState.answers.length + (feedback ? 0 : 1), 12);
+  const currentStep = Math.min(quizState.answers.length + (feedback ? 0 : 1), MAX_QUESTIONS);
+  const reviewAnswers = result
+    ? quizState.answers
+        .filter((answer) => !answer.correct)
+        .sort((left, right) => Math.abs(left.level - result.ability) - Math.abs(right.level - result.ability))
+        .slice(0, 4)
+    : [];
 
   return (
     <main className="site-frame">
-      <header className="topbar">
+      <header className="topbar screen-only">
         <a className="brand" href="#top" aria-label="數學等級評比器首頁">
           <span className="brand-mark" aria-hidden="true"><i /><i /><i /><i /></span>
           <span>MATH//SCAN</span>
@@ -326,7 +467,7 @@ export default function Home() {
         <div className="system-status"><span aria-hidden="true" /> ADAPTIVE SYSTEM ONLINE</div>
       </header>
 
-      <div className="mobile-level-strip" aria-hidden="true">
+      <div className="mobile-level-strip screen-only" aria-hidden="true">
         <span>小四</span><b>···</b><span>{activeLevel ? LEVELS[activeLevel - 1].short : result ? LEVELS[result.levelIndex].short : "探索中"}</span><b>···</b><span>碩士</span>
       </div>
 
@@ -336,12 +477,12 @@ export default function Home() {
         <section className="main-stage">
           {phase === "intro" && (
             <div className="intro-screen">
-              <div className="eyebrow"><span>DIAGNOSTIC v1.0</span><span>12-LEVEL ENGINE</span></div>
+              <div className="eyebrow"><span>DIAGNOSTIC v2.0</span><span>{BANK.length}-ITEM BANK</span></div>
               <div className="hero-grid">
                 <div>
                   <p className="hero-code">{"// FIND YOUR CURRENT MATH ZONE"}</p>
                   <h1>數學等級<br /><strong>評比器</strong></h1>
-                  <p className="hero-copy">從小學四年級到碩士核心，透過自適應題目估算你目前最接近的數學能力區間。</p>
+                  <p className="hero-copy">從小學四年級到碩士核心，以多元題型、自適應難度與跨領域取樣，產生可下載的個人能力診斷。</p>
                 </div>
                 <div className="scanner-art" aria-hidden="true">
                   <div className="scanner-orbit orbit-one" />
@@ -353,9 +494,9 @@ export default function Home() {
               </div>
 
               <div className="stat-row" aria-label="測驗資訊">
-                <div><strong>10–12</strong><span>自適應題數</span></div>
-                <div><strong>約 8 分</strong><span>完成時間</span></div>
-                <div><strong>12 級</strong><span>能力區間</span></div>
+                <div><strong>14–16</strong><span>自適應題數</span></div>
+                <div><strong>5 種</strong><span>題型輪替</span></div>
+                <div><strong>60 題</strong><span>多元題庫</span></div>
               </div>
 
               <div className="briefing pixel-panel">
@@ -364,15 +505,15 @@ export default function Home() {
                   <h2>這趟遠征怎麼進行？</h2>
                 </div>
                 <ul>
-                  <li><span>01</span> 題目會依作答表現即時升降難度</li>
-                  <li><span>02</span> 建議準備紙筆，請不要搜尋答案</li>
-                  <li><span>03</span> 不熟悉很正常，系統會自動校準路線</li>
+                  <li><span>01</span> 計算、應用、資料、推理與概念題交錯出現</li>
+                  <li><span>02</span> 難度依作答表現調整，並避免連續相同領域</li>
+                  <li><span>03</span> 完成後可列印、存成 PDF 或下載文字診斷</li>
                 </ul>
                 <button className="pixel-button primary" onClick={startQuiz}>
                   開始能力掃描 <span aria-hidden="true">▶</span>
                 </button>
               </div>
-              <p className="micro-note">結果用於自我了解與學習規劃，不等同正式學力鑑定。</p>
+              <p className="micro-note">所有計算皆在你的裝置上完成；結果不等同正式學力鑑定。</p>
             </div>
           )}
 
@@ -381,14 +522,15 @@ export default function Home() {
               <div className="quiz-hud">
                 <div>
                   <span className="hud-label">QUESTION</span>
-                  <strong>{String(currentStep).padStart(2, "0")}<small>/12 MAX</small></strong>
+                  <strong>{String(currentStep).padStart(2, "0")}<small>/{MAX_QUESTIONS} MAX</small></strong>
                 </div>
                 <div className="hud-chip"><span>ZONE</span>{LEVELS[question.level - 1].short}</div>
                 <div className="hud-chip"><span>DOMAIN</span>{TOPIC_LABELS[question.topic]}</div>
+                <div className="hud-chip"><span>FORMAT</span>{FORMAT_LABELS[question.format]}</div>
               </div>
 
-              <div className="segment-progress" role="progressbar" aria-label="測驗進度" aria-valuemin={0} aria-valuemax={12} aria-valuenow={quizState.answers.length}>
-                {Array.from({ length: 12 }, (_, index) => <i key={index} className={index < quizState.answers.length ? "done" : index === quizState.answers.length ? "current" : ""} />)}
+              <div className="segment-progress" role="progressbar" aria-label="測驗進度" aria-valuemin={0} aria-valuemax={MAX_QUESTIONS} aria-valuenow={quizState.answers.length}>
+                {Array.from({ length: MAX_QUESTIONS }, (_, index) => <i key={index} className={index < quizState.answers.length ? "done" : index === quizState.answers.length ? "current" : ""} />)}
               </div>
 
               <div className="question-card pixel-panel">
@@ -415,40 +557,54 @@ export default function Home() {
                 </fieldset>
 
                 <div className={`feedback-bar ${feedback ?? ""}`} aria-live="polite">
-                  {feedback === "correct" && <><strong>判定成功</strong><span>這項能力已點亮，系統正在提升探測深度。</span></>}
-                  {feedback === "incorrect" && <><strong>路線校準</strong><span>已記錄這次判定，下一關會更貼近你的程度。</span></>}
+                  {feedback === "correct" && <><strong>判定成功</strong><span>這項能力已點亮，系統正在切換下一個題型。</span></>}
+                  {feedback === "incorrect" && <><strong>路線校準</strong><span>已記錄這次判定，診斷單會整理相關觀念。</span></>}
                   {!feedback && <><strong>操作提示</strong><span>按 1–4 選擇，按 Enter 確認。</span></>}
                 </div>
 
                 <div className="quiz-actions">
-                  <span className="adaptive-note"><i aria-hidden="true" /> BAYESIAN CALIBRATION ACTIVE</span>
+                  <span className="adaptive-note"><i aria-hidden="true" /> DIVERSITY + BAYES CALIBRATION</span>
                   {!feedback ? (
                     <button className="pixel-button primary" disabled={selectedIndex === null} onClick={submitAnswer}>確認答案 <span aria-hidden="true">↵</span></button>
                   ) : (
-                    <button className="pixel-button primary" onClick={continueQuiz}>{shouldStop(quizState) ? "查看評比結果" : "進入下一關"} <span aria-hidden="true">▶</span></button>
+                    <button className="pixel-button primary" onClick={continueQuiz}>{shouldStop(quizState) ? "產生診斷單" : "進入下一關"} <span aria-hidden="true">▶</span></button>
                   )}
                 </div>
               </div>
             </div>
           )}
 
-          {phase === "result" && result && (
+          {phase === "result" && result && reportGeneratedAt && (
             <div className="result-screen">
-              <div className="result-header">
+              <div className="result-header screen-only">
                 <div>
                   <div className="eyebrow"><span>SCAN COMPLETE</span><span>CONFIDENCE: {result.confidence}</span></div>
-                  <p className="hero-code">{"// YOUR CURRENT MATH ZONE"}</p>
-                  <h1>遠征完成</h1>
+                  <p className="hero-code">{"// YOUR PERSONAL DIAGNOSTIC"}</p>
+                  <h1>診斷完成</h1>
                 </div>
                 <div className="result-score"><strong>{result.score}</strong><span>ABILITY INDEX</span></div>
               </div>
+
+              <section className="report-masthead pixel-panel">
+                <div className="report-title">
+                  <div><span>MATH//SCAN · REPORT v2.0</span><h2>數學能力診斷單</h2></div>
+                  <strong>{reportId}</strong>
+                </div>
+                <div className="report-identity">
+                  <label className="screen-only">姓名／代號<input value={learnerName} maxLength={30} onChange={(event) => setLearnerName(event.target.value)} placeholder="可選填，列印時會顯示" /></label>
+                  <div className="print-only"><span>姓名／代號</span><strong>{learnerName.trim() || "＿＿＿＿＿＿＿＿"}</strong></div>
+                  <div><span>產生日期</span><strong>{reportGeneratedAt.toLocaleDateString("zh-TW")}</strong></div>
+                  <div><span>作答計時</span><strong>{formatDuration(totalAnswerSeconds)}</strong></div>
+                  <div><span>題型覆蓋</span><strong>{coveredFormatCount} / 5 種</strong></div>
+                </div>
+              </section>
 
               <section className="rank-card pixel-panel">
                 <div className="rank-code">LEVEL {String(result.levelIndex + 1).padStart(2, "0")}</div>
                 <div className="rank-main">
                   <div className="rank-emblem" aria-hidden="true"><span>Σ</span></div>
                   <div>
-                    <p>你的目前數學等級接近</p>
+                    <p>本次表現最接近</p>
                     <h2>{LEVELS[result.levelIndex].full}</h2>
                     <strong>{LEVELS[result.levelIndex].rank}</strong>
                   </div>
@@ -456,55 +612,89 @@ export default function Home() {
                 <p className="rank-blurb">{LEVELS[result.levelIndex].blurb}</p>
                 <div className="result-metrics">
                   <div><span>可能區間</span><strong>{LEVELS[levelIndexFromTheta(result.low)].short} — {LEVELS[levelIndexFromTheta(result.high)].short}</strong></div>
-                  <div><span>作答紀錄</span><strong>{result.correctCount} / {quizState.answers.length} 命中</strong></div>
+                  <div><span>作答證據</span><strong>{result.correctCount} / {quizState.answers.length} 命中</strong></div>
+                  <div><span>結果穩定度</span><strong>{result.confidence}</strong></div>
                   <div><span>能力值</span><strong>{result.ability.toFixed(1)} / 12</strong></div>
                 </div>
+                <p className="evidence-note">目前證據集中於 {LEVELS[levelIndexFromTheta(result.low)].short} 到 {LEVELS[levelIndexFromTheta(result.high)].short}。這是本次題型下的估計區間，不代表能力上限。</p>
               </section>
 
               <section className="skill-card pixel-panel">
-                <div className="section-heading"><div><div className="panel-kicker">SKILL MAP</div><h2>能力取樣</h2></div><span>依本次出題領域</span></div>
+                <div className="section-heading"><div><div className="panel-kicker">SKILL EVIDENCE</div><h2>能力地圖</h2></div><span>同時顯示樣本數，避免單題過度解讀</span></div>
                 <div className="skill-list">
-                  {SKILL_GROUPS.map((group) => {
-                    const sampled = quizState.answers.filter((answer) => group.topics.includes(answer.topic));
-                    const score = sampled.length ? Math.round((sampled.filter((answer) => answer.correct).length / sampled.length) * 100) : null;
-                    return (
-                      <div className="skill-row" key={group.label}>
-                        <span>{group.label}</span>
-                        <div className="skill-track" style={{ "--skill": `${score ?? 0}%` } as CSSProperties}><i /></div>
-                        <strong>{score === null ? "未取樣" : `${score}%`}</strong>
-                      </div>
-                    );
-                  })}
+                  {diagnostics.map((item) => (
+                    <div className={`skill-row ${diagnosticClass(item.status)}`} key={item.label}>
+                      <div className="skill-name"><span>{item.label}</span><small>{item.status}</small></div>
+                      <div className="skill-track" style={{ "--skill": `${item.accuracy ?? 0}%` } as CSSProperties}><i /></div>
+                      <div className="skill-value"><strong>{item.accuracy === null ? "—" : `${item.accuracy}%`}</strong><small>{item.sampleCount ? `${item.correctCount}/${item.sampleCount} · ${item.evidence}` : "未取樣"}</small></div>
+                    </div>
+                  ))}
                 </div>
               </section>
 
-              {quizState.answers.some((answer) => !answer.correct) && (
-                <section className="review-card pixel-panel">
-                  <div className="section-heading"><div><div className="panel-kicker">NEXT QUEST</div><h2>建議回補關卡</h2></div><span>顯示最多 3 題</span></div>
+              <section className="learning-card pixel-panel">
+                <div className="section-heading"><div><div className="panel-kicker">LEARNING ROUTE</div><h2>三步學習路線</h2></div><span>依本次證據排序</span></div>
+                <p className="diagnostic-summary">
+                  {strongestDiagnostic
+                    ? `你在「${strongestDiagnostic.label}」呈現相對穩定的訊號；以下建議以目前最值得確認或補強的領域優先。`
+                    : "本次各領域樣本仍少，以下先提供可操作的確認路線，建議完成練習後再次評量。"}
+                </p>
+                <div className="learning-grid">
+                  {prioritizedDiagnostics.map((item, index) => (
+                    <article key={item.label}>
+                      <span>STEP {String(index + 1).padStart(2, "0")}</span>
+                      <h3>{item.label}</h3>
+                      <strong>{item.status} · {item.evidence}</strong>
+                      <p>{item.recommendation}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="stage-advice"><strong>階段建議</strong><p>{stageAdvice(result.levelIndex)}</p></div>
+              </section>
+
+              {reviewAnswers.length > 0 && (
+                <section className="review-card pixel-panel detail-page">
+                  <div className="section-heading"><div><div className="panel-kicker">ANSWER AUDIT</div><h2>重點錯題診斷</h2></div><span>依接近目前能力值排序</span></div>
                   <div className="review-list">
-                    {quizState.answers.filter((answer) => !answer.correct).slice(0, 3).map((answer) => {
+                    {reviewAnswers.map((answer) => {
                       const item = BANK.find((candidate) => candidate.id === answer.questionId)!;
-                      return <article key={answer.questionId}><span>{TOPIC_LABELS[item.topic]} · {LEVELS[item.level - 1].short}</span><h3>{item.prompt}</h3><p>{item.rationale}</p></article>;
+                      return (
+                        <article key={answer.questionId}>
+                          <span>{TOPIC_LABELS[item.topic]} · {LEVELS[item.level - 1].short} · {FORMAT_LABELS[item.format]}</span>
+                          <h3>{item.prompt}</h3>
+                          <dl><div><dt>你的答案</dt><dd>{answer.selected}</dd></div><div><dt>參考答案</dt><dd>{answer.correctAnswer}</dd></div><div><dt>作答時間</dt><dd>{answer.elapsedSeconds} 秒</dd></div></dl>
+                          <p><strong>關鍵觀念：</strong>{answer.rationale}</p>
+                        </article>
+                      );
                     })}
                   </div>
                 </section>
               )}
 
-              <div className="result-actions">
-                <button className="pixel-button primary" onClick={startQuiz}>重新掃描 <span aria-hidden="true">↻</span></button>
-                <a className="pixel-button ghost" href="#method">評量說明 <span aria-hidden="true">↓</span></a>
+              <section className="action-plan print-only">
+                <h2>個人行動計畫</h2>
+                <p>本週優先補強：＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿</p>
+                <p>預計完成：＿＿題／＿＿分鐘　完成日期：＿＿年＿＿月＿＿日</p>
+                <p>我會如何確認理解：□ 口頭說明　□ 完整列式　□ 變化題　□ 限時練習</p>
+              </section>
+
+              <div className="result-actions screen-only">
+                <button className="pixel-button primary" onClick={() => window.print()}>列印／另存 PDF <span aria-hidden="true">▣</span></button>
+                <button className="pixel-button ghost" onClick={downloadDiagnostic}>下載文字診斷 <span aria-hidden="true">↓</span></button>
+                <button className="pixel-button ghost" onClick={startQuiz}>重新掃描 <span aria-hidden="true">↻</span></button>
               </div>
 
               <section className="method-note" id="method">
-                <strong>評量說明</strong>
-                <p>本工具以本次作答、題型與難度進行 Bayesian 能力估算，僅供自我了解與學習規劃。結果不等同學校成績、正式檢定、智力測驗、入學資格或學術認證；單次結果也不代表你的能力上限。</p>
+                <strong>評量與隱私說明</strong>
+                <p>本工具依本次題目、難度路徑、正確率與作答時間進行 Bayesian 能力估算，僅供自我了解、教學討論與學習規劃。結果不等同學校年級、正式成績、入學資格、智力測驗或學位認證；未出現的能力不代表不具備，單次答錯也不足以判定概念未掌握。</p>
+                <p>作答與姓名只在你的瀏覽器中處理，不會傳送到 GPT 或外部評分服務。</p>
               </section>
             </div>
           )}
         </section>
       </div>
 
-      <footer><span>© 2026 MATH//SCAN</span><span>用好奇心校準，不用分數定義自己。</span></footer>
+      <footer className="screen-only"><span>© 2026 MATH//SCAN</span><span>用好奇心校準，不用分數定義自己。</span></footer>
     </main>
   );
 }
