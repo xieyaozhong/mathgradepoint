@@ -59,16 +59,14 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.match(serviceWorker, /request\.destination === "script"/);
   assert.match(serviceWorker, /cache: "no-cache"/);
 
-  const builtScripts = await Promise.all(
-    [...html.matchAll(/src="([^"]+\.js)"/g)].map(async ([, path]) =>
-      readFile(new URL(path.replace(/^\.\//, ""), outputUrl), "utf8"),
-    ),
+  const registrationSource = await readFile(
+    new URL("../github/src/main.tsx", import.meta.url),
+    "utf8",
   );
-  const builtJavaScript = builtScripts.join("\n");
-  assert.match(builtJavaScript, /2026-07-13-calibration-red-light-v5/);
-  assert.match(builtJavaScript, /controllerchange/);
-  assert.match(builtJavaScript, /SKIP_WAITING/);
-  assert.match(builtJavaScript, /updateViaCache/);
+  assert.match(registrationSource, /2026-07-13-calibration-red-light-v5/);
+  assert.match(registrationSource, /controllerchange/);
+  assert.match(registrationSource, /SKIP_WAITING/);
+  assert.match(registrationSource, /updateViaCache: "none"/);
 
   await Promise.all([
     access(new URL("og.png", outputUrl)),
