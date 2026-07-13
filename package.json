@@ -6,14 +6,14 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "node scripts/apply-analysis-upgrade.mjs && vinext dev --port 4173",
-    "build": "node scripts/apply-analysis-upgrade.mjs && vinext build",
-    "build:github": "node scripts/generate-pwa-icon.mjs && node scripts/generate-ios-icon.mjs && node scripts/apply-analysis-upgrade.mjs && vite build --config vite.github.config.ts",
+    "dev": "node scripts/apply-analysis-upgrade.mjs && node scripts/apply-calibration-signal-fix.mjs && vinext dev --port 4173",
+    "build": "node scripts/apply-analysis-upgrade.mjs && node scripts/apply-calibration-signal-fix.mjs && vinext build",
+    "build:github": "node scripts/generate-pwa-icon.mjs && node scripts/generate-ios-icon.mjs && node scripts/apply-analysis-upgrade.mjs && node scripts/apply-calibration-signal-fix.mjs && vite build --config vite.github.config.ts",
     "check:github": "npm run build:github && node tests/github-pages.test.mjs && node tests/question-bank.test.mjs",
     "preview:github": "vite preview --config vite.github.config.ts",
     "start": "vinext start",
     "test": "npm run build && node tests/rendered-html.test.mjs && node tests/question-bank.test.mjs",
-    "lint": "node scripts/apply-analysis-upgrade.mjs && eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern github-dist",
+    "lint": "node scripts/apply-analysis-upgrade.mjs && node scripts/apply-calibration-signal-fix.mjs && eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern github-dist",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
