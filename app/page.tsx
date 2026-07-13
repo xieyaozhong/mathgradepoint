@@ -24,6 +24,8 @@ type AnswerRecord = {
   format: QuestionFormat;
   level: number;
   elapsedSeconds: number;
+  expectedCorrectProbability: number;
+  targetSeconds: number;
 };
 
 type QuizState = {
@@ -45,10 +47,97 @@ type SkillDiagnostic = {
   evidence: "證據較充足" | "初步訊號" | "單題取樣" | "未取樣";
 };
 
+type LearningRouteId = "stepwise" | "visual" | "toolkit";
+
+type LearningRecommendation = {
+  id: LearningRouteId;
+  publicTitle: "解題流程" | "概念整理" | "重點整理";
+  slogan: string;
+  reason: string;
+  evidenceLabel: string;
+  focusLabel: string;
+  flow: string[];
+  hints: { level: number; title: string; text: string }[];
+};
+
 const MIN_QUESTIONS = 14;
 const MAX_QUESTIONS = 16;
 const RECENT_ITEMS_KEY = "math-scan-recent-items-v2";
 const THETA_GRID = Array.from({ length: 111 }, (_, index) => 1 + index / 10);
+
+const LEARNING_ROUTE_COPY = {
+  stepwise: {
+    publicTitle: "解題流程",
+    slogan: "一步一步，清楚不出錯",
+    flow: ["問題／目標", "已知條件", "找出關係", "逐步推導", "快速檢查"],
+  },
+  visual: {
+    publicTitle: "概念整理",
+    slogan: "先看懂畫面，再寫成式子",
+    flow: ["整體概念", "生活／圖像", "建立畫面", "整理規則", "小試身手"],
+  },
+  toolkit: {
+    publicTitle: "重點整理",
+    slogan: "一眼辨題型，直接啟動解法",
+    flow: ["辨認題型", "選擇工具", "確認條件", "固定步驟", "快速檢查"],
+  },
+} as const;
+
+const BASE_TARGET_SECONDS: Record<QuestionFormat, number> = {
+  calculation: 45,
+  application: 60,
+  data: 55,
+  reasoning: 70,
+  concept: 50,
+};
+
+const LEARNING_ROUTE_WEIGHTS: Record<
+  LearningRouteId,
+  { format: Record<QuestionFormat, number>; topic: Record<Topic, number> }
+> = {
+  stepwise: {
+    format: { calculation: 0.25, application: 0.7, data: 0.45, reasoning: 1, concept: 0.55 },
+    topic: {
+      arithmetic: 0.4,
+      geometry: 0.5,
+      algebra: 0.85,
+      functions: 0.7,
+      trigonometry: 0.55,
+      "data-probability": 0.55,
+      calculus: 0.75,
+      "linear-algebra": 0.85,
+      analysis: 1,
+    },
+  },
+  visual: {
+    format: { calculation: 0.2, application: 1, data: 1, reasoning: 0.5, concept: 0.9 },
+    topic: {
+      arithmetic: 0.65,
+      geometry: 1,
+      algebra: 0.5,
+      functions: 0.9,
+      trigonometry: 1,
+      "data-probability": 0.95,
+      calculus: 0.65,
+      "linear-algebra": 0.7,
+      analysis: 0.4,
+    },
+  },
+  toolkit: {
+    format: { calculation: 1, application: 0.65, data: 0.4, reasoning: 0.35, concept: 0.35 },
+    topic: {
+      arithmetic: 1,
+      geometry: 0.65,
+      algebra: 0.95,
+      functions: 0.9,
+      trigonometry: 0.8,
+      "data-probability": 0.7,
+      calculus: 1,
+      "linear-algebra": 0.9,
+      analysis: 0.55,
+    },
+  },
+};
 
 function createInitialState(): QuizState {
   return {
@@ -220,6 +309,207 @@ function makeSkillDiagnostics(answers: AnswerRecord[]): SkillDiagnostic[] {
   });
 }
 
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function targetSecondsFor(item: Question) {
+  const levelFactor = 0.85 + 0.025 * item.level;
+  return Math.round(BASE_TARGET_SECONDS[item.format] * levelFactor);
+}
+
+function timingSignals(answer: AnswerRecord) {
+  if (answer.targetSeconds <= 0 || answer.elapsedSeconds > answer.targetSeconds * 3) {
+    return { slow: 0, rushed: 0 };
+  }
+  const ratio = answer.elapsedSeconds / answer.targetSeconds;
+  return {
+    slow: clamp01((ratio - 1) / 0.75),
+    rushed: clamp01((0.6 - ratio) / 0.3),
+  };
+}
+
+function routeAffinity(routeId: LearningRouteId, answer: AnswerRecord) {
+  const weights = LEARNING_ROUTE_WEIGHTS[routeId];
+  return 0.55 * weights.format[answer.format] + 0.45 * weights.topic[answer.topic];
+}
+
+type RouteMetric = {
+  id: LearningRouteId;
+  needScore: number;
+  readinessScore: number;
+  effectiveWeight: number;
+  highNeedCount: number;
+  hardCorrectCount: number;
+  distinctTopics: number;
+};
+
+function answerSignals(answer: AnswerRecord) {
+  const expected = Math.max(0.25, Math.min(0.95, answer.expectedCorrectProbability));
+  const { slow, rushed } = timingSignals(answer);
+  const missNeed = answer.correct ? 0 : expected;
+  const supportNeed = clamp01(0.75 * missNeed + 0.2 * slow + 0.05 * (!answer.correct ? rushed : 0));
+  const readiness = answer.correct ? clamp01(0.65 + 0.35 * (1 - expected) - 0.2 * slow) : 0;
+  const relevance = 0.5 + 0.5 * (4 * expected * (1 - expected));
+  return { supportNeed, readiness, relevance };
+}
+
+function scoreLearningRoute(id: LearningRouteId, answers: AnswerRecord[]): RouteMetric {
+  let weightedNeed = 0;
+  let weightedReadiness = 0;
+  let effectiveWeight = 0;
+  let highNeedCount = 0;
+  let hardCorrectCount = 0;
+  const topics = new Set<Topic>();
+
+  answers.forEach((answer) => {
+    const { supportNeed, readiness, relevance } = answerSignals(answer);
+    const affinity = routeAffinity(id, answer);
+    const weight = affinity * relevance;
+    weightedNeed += weight * supportNeed;
+    weightedReadiness += weight * readiness;
+    effectiveWeight += weight;
+    if (affinity >= 0.6) topics.add(answer.topic);
+    if (supportNeed >= 0.45 && affinity >= 0.6) highNeedCount += 1;
+    if (answer.correct && answer.expectedCorrectProbability < 0.55 && affinity >= 0.6) hardCorrectCount += 1;
+  });
+
+  const denominator = Math.max(effectiveWeight, 0.001);
+  return {
+    id,
+    needScore: Math.round((1000 * weightedNeed) / denominator) / 10,
+    readinessScore: Math.round((1000 * weightedReadiness) / denominator) / 10,
+    effectiveWeight,
+    highNeedCount,
+    hardCorrectCount,
+    distinctTopics: topics.size,
+  };
+}
+
+function stableHash(text: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function strongestSignal<T extends string>(signals: Partial<Record<T, number>>, fallback: T) {
+  return (
+    (Object.entries(signals) as [T, number][]).sort(
+      (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+    )[0]?.[0] ?? fallback
+  );
+}
+
+function makeLearningRecommendation(answers: AnswerRecord[]): LearningRecommendation {
+  const fallbackTopic: Topic = answers[0]?.topic ?? "arithmetic";
+  const fallbackFormat: QuestionFormat = answers[0]?.format ?? "concept";
+  if (!answers.length) {
+    return {
+      id: "visual",
+      ...LEARNING_ROUTE_COPY.visual,
+      reason: "完成評量後，系統會依本次作答證據配置一條可操作的學習路徑。",
+      evidenceLabel: "等待作答證據",
+      focusLabel: "尚未評量",
+      hints: [],
+    };
+  }
+
+  const routeIds: LearningRouteId[] = ["stepwise", "visual", "toolkit"];
+  const metrics = routeIds.map((id) => scoreLearningRoute(id, answers));
+  const maxNeed = Math.max(...metrics.map((metric) => metric.needScore));
+  const mode: "support" | "extend" = maxNeed >= 18 ? "support" : "extend";
+  const sessionSeed = answers.map((answer) => answer.questionId).join(":");
+
+  metrics.sort((left, right) => {
+    const leftPrimary = mode === "support" ? left.needScore : left.readinessScore;
+    const rightPrimary = mode === "support" ? right.needScore : right.readinessScore;
+    if (Math.abs(rightPrimary - leftPrimary) >= 2) return rightPrimary - leftPrimary;
+    const leftSignal = mode === "support" ? left.highNeedCount : left.hardCorrectCount;
+    const rightSignal = mode === "support" ? right.highNeedCount : right.hardCorrectCount;
+    if (rightSignal !== leftSignal) return rightSignal - leftSignal;
+    if (Math.abs(right.effectiveWeight - left.effectiveWeight) >= 0.25) {
+      return right.effectiveWeight - left.effectiveWeight;
+    }
+    if (right.distinctTopics !== left.distinctTopics) return right.distinctTopics - left.distinctTopics;
+    return stableHash(`${sessionSeed}:${left.id}`) - stableHash(`${sessionSeed}:${right.id}`);
+  });
+
+  const primary = metrics[0];
+  const primaryScore = mode === "support" ? primary.needScore : primary.readinessScore;
+  const secondScore = mode === "support" ? metrics[1].needScore : metrics[1].readinessScore;
+  const margin = primaryScore - secondScore;
+  const evidenceStrength = primary.effectiveWeight < 2.5 || margin < 4 ? "初步建議" : margin < 10 ? "中等證據" : "較充足證據";
+  const topicSignals: Partial<Record<Topic, number>> = {};
+  const formatSignals: Partial<Record<QuestionFormat, number>> = {};
+
+  answers.forEach((answer) => {
+    const signals = answerSignals(answer);
+    const signal = routeAffinity(primary.id, answer) * (mode === "support" ? signals.supportNeed : signals.readiness);
+    topicSignals[answer.topic] = (topicSignals[answer.topic] ?? 0) + signal;
+    formatSignals[answer.format] = (formatSignals[answer.format] ?? 0) + signal;
+  });
+
+  const focusTopic = strongestSignal(topicSignals, fallbackTopic);
+  const focusFormat = strongestSignal(formatSignals, fallbackFormat);
+  const focusTopicLabel = TOPIC_LABELS[focusTopic];
+  const focusFormatLabel = FORMAT_LABELS[focusFormat];
+  const copy = LEARNING_ROUTE_COPY[primary.id];
+  const routePurpose: Record<LearningRouteId, { support: string; extend: string }> = {
+    stepwise: {
+      support: "先找切入點，再把條件串成可驗證的推導。",
+      extend: "用完整理由與驗證，讓複雜推導更穩定。",
+    },
+    visual: {
+      support: "先把文字轉成畫面，再整理成正式關係。",
+      extend: "切換圖像、文字與式子，確認概念能靈活轉換。",
+    },
+    toolkit: {
+      support: "先辨認題型與適用條件，再按固定步驟操作。",
+      extend: "整理方法的適用條件，再用變化題提升效率。",
+    },
+  };
+  const reasonLead =
+    mode === "support"
+      ? `本次「${focusTopicLabel}」與「${focusFormatLabel}」題顯示較高的補強訊號。`
+      : `本次沒有集中的學習缺口；「${focusTopicLabel}」與「${focusFormatLabel}」可作為下一步深化焦點。`;
+  const closeEvidence = margin < 4 ? " 三種方向的證據接近，這只是下一輪練習的起點。" : "";
+
+  const hintsByRoute: Record<LearningRouteId, LearningRecommendation["hints"]> = {
+    stepwise: [
+      { level: 1, title: "方向提示", text: `先寫下「${focusTopicLabel}」練習要求什麼、已知什麼；暫時不要急著選公式。` },
+      { level: 2, title: "關鍵缺口", text: `從題目的關鍵已知出發，補出它與目標之間缺少的中間關係。` },
+      { level: 3, title: "操作框架", text: "依序完成「整理已知 → 建立關係 → 逐步推導 → 代入檢查」；最後的運算與結論由你完成。" },
+    ],
+    visual: [
+      { level: 1, title: "方向提示", text: `先不要計算，把「${focusTopicLabel}」題意改用圖、數線、表格或生活語言表達。` },
+      { level: 2, title: "關鍵缺口", text: "標出全部、部分、變化前與變化後，補上關係線或缺少的標記。" },
+      { level: 3, title: "操作框架", text: "依序完成「畫面 → 數量關係 → 正式式子 → 快速檢查」；保留最後計算與答案自行完成。" },
+    ],
+    toolkit: [
+      { level: 1, title: "方向提示", text: `圈出「${focusFormatLabel}」的關鍵字與數值，先判斷題型，不急著代入。` },
+      { level: 2, title: "關鍵缺口", text: "從公式或方法中選出適用者，先確認使用條件與單位，再補上第一個代入位置。" },
+      { level: 3, title: "操作框架", text: "依序完成「辨認題型 → 選擇工具 → 代入數值 → 計算 → 驗算」；最後運算與答案由你完成。" },
+    ],
+  };
+
+  return {
+    id: primary.id,
+    publicTitle: copy.publicTitle,
+    slogan: copy.slogan,
+    reason: `${reasonLead} ${routePurpose[primary.id][mode]}${closeEvidence}`,
+    evidenceLabel:
+      mode === "support"
+        ? `${primary.highNeedCount || answers.filter((answer) => !answer.correct).length} 個補強訊號 · ${evidenceStrength}`
+        : `完成 ${answers.length} 題 · ${evidenceStrength}`,
+    focusLabel: `${focusTopicLabel} · ${focusFormatLabel}`,
+    flow: [...copy.flow],
+    hints: hintsByRoute[primary.id],
+  };
+}
+
 function formatDuration(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -276,12 +566,17 @@ export default function Home() {
   const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
   const [learnerName, setLearnerName] = useState("");
   const [reportGeneratedAt, setReportGeneratedAt] = useState<Date | null>(null);
+  const [revealedHintLevel, setRevealedHintLevel] = useState(0);
   const questionHeadingRef = useRef<HTMLHeadingElement>(null);
   const questionStartedAtRef = useRef(0);
   const recentQuestionIdsRef = useRef<string[]>([]);
 
   const result = useMemo(() => (phase === "result" ? makeResult(quizState) : null), [phase, quizState]);
   const diagnostics = useMemo(() => makeSkillDiagnostics(quizState.answers), [quizState.answers]);
+  const learningRecommendation = useMemo(
+    () => makeLearningRecommendation(quizState.answers),
+    [quizState.answers],
+  );
   const totalAnswerSeconds = useMemo(
     () => quizState.answers.reduce((sum, answer) => sum + answer.elapsedSeconds, 0),
     [quizState.answers],
@@ -335,6 +630,7 @@ export default function Home() {
     setQuizState(initial);
     setReportGeneratedAt(null);
     setLearnerName("");
+    setRevealedHintLevel(0);
     setPhase("quiz");
     presentQuestion(chooseNextQuestion(initial, recentIds));
   };
@@ -344,6 +640,7 @@ export default function Home() {
     const selected = choiceOrder[selectedIndex];
     const posterior = updatePosterior(quizState, question, selected.correct);
     const elapsedSeconds = Math.max(1, Math.round((window.performance.now() - questionStartedAtRef.current) / 1000));
+    const expectedCorrectProbability = pCorrect(posteriorMean(quizState), question);
     const nextState: QuizState = {
       posterior,
       answers: [
@@ -358,6 +655,8 @@ export default function Home() {
           format: question.format,
           level: question.level,
           elapsedSeconds,
+          expectedCorrectProbability,
+          targetSeconds: targetSecondsFor(question),
         },
       ],
       askedIds: [...quizState.askedIds, question.id],
@@ -407,6 +706,14 @@ export default function Home() {
       "",
       "能力地圖",
       ...diagnostics.map((item) => `${item.label}：${item.status}｜${item.evidence}｜${item.accuracy === null ? "未取樣" : `${item.correctCount}/${item.sampleCount}（${item.accuracy}%）`}`),
+      "",
+      "推薦學習武器",
+      `${learningRecommendation.publicTitle}｜${learningRecommendation.slogan}`,
+      `推薦原因：${learningRecommendation.reason}`,
+      `本次焦點：${learningRecommendation.focusLabel}`,
+      `學習順序：${learningRecommendation.flow.join(" → ")}`,
+      "補強：請在線上依第 1 至第 3 級逐步開啟；提示不會直接公布答案。",
+      "說明：這不是固定學習風格分類，而是依本次作答證據提供的練習起點。",
       "",
       "建議學習路線",
       ...prioritizedDiagnostics.map((item, index) => `${index + 1}. ${item.label}：${item.recommendation}`),
@@ -650,6 +957,76 @@ export default function Home() {
                   ))}
                 </div>
                 <div className="stage-advice"><strong>階段建議</strong><p>{stageAdvice(result.levelIndex)}</p></div>
+              </section>
+
+              <section
+                className={`weapon-card pixel-panel weapon-${learningRecommendation.id}`}
+                aria-label="推薦學習武器"
+              >
+                <div className="section-heading">
+                  <div><div className="panel-kicker">RECOMMENDED LOADOUT</div><h2>推薦學習武器</h2></div>
+                  <span>依本次作答證據配置</span>
+                </div>
+
+                <div className="weapon-overview">
+                  <div className={`weapon-icon icon-${learningRecommendation.id}`} aria-hidden="true">
+                    <i /><i /><i />
+                  </div>
+                  <div className="weapon-copy">
+                    <span>本次建議</span>
+                    <h3>{learningRecommendation.publicTitle}</h3>
+                    <strong>{learningRecommendation.slogan}</strong>
+                    <p>{learningRecommendation.reason}</p>
+                    <div className="weapon-chips">
+                      <span>焦點／{learningRecommendation.focusLabel}</span>
+                      <span>依據／{learningRecommendation.evidenceLabel}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <ol className="weapon-flow" aria-label="建議學習順序">
+                  {learningRecommendation.flow.map((step, index) => (
+                    <li key={step}>
+                      <b>{String(index + 1).padStart(2, "0")}</b>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+
+                <div className="boost-shell">
+                  <div className="boost-heading">
+                    <div><span>PROGRESSIVE SUPPORT</span><h3>補強</h3></div>
+                    <p>需要時再依序開啟；不直接公布答案。</p>
+                  </div>
+                  <ol className="boost-levels" id="boost-levels" aria-live="polite">
+                    {learningRecommendation.hints.map((hint) => {
+                      const isRevealed = hint.level <= revealedHintLevel;
+                      return (
+                        <li className={isRevealed ? "is-revealed" : "is-locked"} key={hint.level}>
+                          <b>{String(hint.level).padStart(2, "0")}</b>
+                          <span>
+                            <strong>第 {hint.level} 級｜{hint.title}</strong>
+                            <small>{isRevealed ? hint.text : "尚未開啟"}</small>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                  {revealedHintLevel < 3 ? (
+                    <button
+                      className="boost-button screen-only"
+                      type="button"
+                      aria-controls="boost-levels"
+                      onClick={() => setRevealedHintLevel((level) => Math.min(3, level + 1))}
+                    >
+                      開啟第 {revealedHintLevel + 1} 級補強 <span aria-hidden="true">＋</span>
+                    </button>
+                  ) : (
+                    <p className="boost-complete">三級補強已開啟；請自行完成最後運算與答案。</p>
+                  )}
+                </div>
+
+                <p className="weapon-disclaimer">這不是固定學習風格分類，而是依本次作答證據提供的下一輪練習起點。</p>
               </section>
 
               {reviewAnswers.length > 0 && (

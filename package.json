@@ -13,7 +13,7 @@
     "preview:github": "vite preview --config vite.github.config.ts",
     "start": "vinext start",
     "test": "npm run build && node tests/rendered-html.test.mjs && node tests/question-bank.test.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work --ignore-pattern github-dist",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
