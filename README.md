@@ -12,6 +12,16 @@
 - 依本次題型、主題、難度與有效作答時間推薦學習武器，並逐級開放三層「補強」
 - 支援 A4 列印、另存 PDF 與 UTF-8 文字診斷下載
 
+## PWA 安裝與離線使用
+
+GitHub Pages 版本已支援 Progressive Web App：
+
+- 可從支援的瀏覽器安裝成獨立 App
+- iPhone／iPad 可從 Safari 分享選單選擇「加入主畫面」
+- 首次在線開啟後，會快取應用程式外殼與已載入資源，供離線再次啟動
+- 新版本部署後，Service Worker 會更新快取
+- PWA 路徑採相對設定，可正確部署在 GitHub Pages 的 repository 子路徑
+
 ## GitHub Pages 自動部署
 
 專案已包含 `.github/workflows/deploy-pages.yml`。推送到 GitHub 後：
@@ -47,10 +57,13 @@ npm run build
 - `app/math-data.ts`：能力級別、60 題題庫與領域學習建議
 - `app/page.tsx`：自適應演算法、診斷報告與互動介面
 - `app/globals.css`：像素風響應式設計
-- `github/`：GitHub Pages 專用靜態入口
+- `github/`：GitHub Pages 專用靜態入口與 Service Worker 註冊
 - `vite.github.config.ts`：可攜式靜態建置設定
 - `.github/workflows/deploy-pages.yml`：GitHub Pages 自動部署
-- `public/og.png`：社群分享預覽圖
+- `public/manifest.webmanifest`：PWA 安裝資訊
+- `public/sw.js`：離線快取與更新策略
+- `public/icon.svg`、`public/icon-maskable.svg`：一般與遮罩式 App 圖示
+- `public/og.png`：社群分享預覽圖與 Apple 主畫面圖示備援
 
 ## 評量聲明
 
