@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const pagePath = resolve(projectRoot, "app/page.tsx");
 const cssPath = resolve(projectRoot, "app/globals.css");
+const serviceWorkerPath = resolve(projectRoot, "public/sw.js");
 
 const calibrationSignalStyles = `
 
@@ -147,5 +148,15 @@ async function patchStyles() {
   await writeFile(cssPath, source);
 }
 
+async function patchServiceWorker() {
+  let source = await readFile(serviceWorkerPath, "utf8");
+  source = source.replace(
+    /const CACHE_VERSION = "[^"]+";/,
+    'const CACHE_VERSION = "v6-calibration-signal-20260713";',
+  );
+  await writeFile(serviceWorkerPath, source);
+}
+
 await patchPage();
 await patchStyles();
+await patchServiceWorker();
