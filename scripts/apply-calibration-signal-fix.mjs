@@ -36,6 +36,26 @@ const calibrationSignalStyles = `
   animation: status-pulse 0.7s steps(2, end) infinite;
 }
 
+.segment-progress.is-calibrating i.calibration-segment {
+  border-color: rgb(255 107 122 / 0.48);
+  background: rgb(255 107 122 / 0.08);
+}
+
+.segment-progress.is-calibrating i.calibration-segment.done {
+  border-color: var(--danger);
+  background: var(--danger);
+  box-shadow: 0 0 12px rgb(255 107 122 / 0.58);
+}
+
+.segment-progress.is-calibrating i.calibration-segment.current {
+  border-color: var(--danger);
+  background: var(--danger);
+  box-shadow:
+    0 0 0 2px rgb(255 107 122 / 0.18),
+    0 0 16px var(--danger);
+  animation: status-pulse 0.7s steps(2, end) infinite;
+}
+
 .calibration-alert {
   display: flex;
   gap: 13px;
@@ -119,6 +139,16 @@ async function patchPage() {
     '<header className={`topbar screen-only ${isCalibrationQuestion ? "is-calibrating" : ""}`}>',
   );
 
+  source = source.replace(
+    '<div className="segment-progress" role="progressbar"',
+    '<div className={`segment-progress ${isCalibrationQuestion ? "is-calibrating" : ""}`} role="progressbar"',
+  );
+
+  source = source.replace(
+    '{Array.from({ length: MAX_QUESTIONS }, (_, index) => <i key={index} className={index < quizState.answers.length ? "done" : index === quizState.answers.length ? "current" : ""} />)}',
+    '{Array.from({ length: MAX_QUESTIONS }, (_, index) => <i key={index} className={`${index < quizState.answers.length ? "done" : index === quizState.answers.length ? "current" : ""} ${index >= BASE_QUESTIONS ? "calibration-segment" : "standard-segment"}`.trim()} />)}',
+  );
+
   if (!source.includes('className="calibration-alert"')) {
     source = source.replace(
       `            <div className="quiz-screen">
@@ -144,6 +174,29 @@ async function patchStyles() {
   let source = await readFile(cssPath, "utf8");
   if (!source.includes(".calibration-alert-light")) {
     source += calibrationSignalStyles;
+  } else if (!source.includes(".segment-progress.is-calibrating i.calibration-segment.current")) {
+    source += `
+
+.segment-progress.is-calibrating i.calibration-segment {
+  border-color: rgb(255 107 122 / 0.48);
+  background: rgb(255 107 122 / 0.08);
+}
+
+.segment-progress.is-calibrating i.calibration-segment.done {
+  border-color: var(--danger);
+  background: var(--danger);
+  box-shadow: 0 0 12px rgb(255 107 122 / 0.58);
+}
+
+.segment-progress.is-calibrating i.calibration-segment.current {
+  border-color: var(--danger);
+  background: var(--danger);
+  box-shadow:
+    0 0 0 2px rgb(255 107 122 / 0.18),
+    0 0 16px var(--danger);
+  animation: status-pulse 0.7s steps(2, end) infinite;
+}
+`;
   }
   await writeFile(cssPath, source);
 }
@@ -152,7 +205,7 @@ async function patchServiceWorker() {
   let source = await readFile(serviceWorkerPath, "utf8");
   source = source.replace(
     /const CACHE_VERSION = "[^"]+";/,
-    'const CACHE_VERSION = "v6-calibration-signal-20260713";',
+    'const CACHE_VERSION = "v7-calibration-progress-20260713";',
   );
   await writeFile(serviceWorkerPath, source);
 }
