@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const projectRoot = fileURLToPath(new URL("..", import.meta.url));
 const pagePath = resolve(projectRoot, "app/page.tsx");
 const dataPath = resolve(projectRoot, "app/math-data.ts");
+const cssPath = resolve(projectRoot, "app/globals.css");
 
 const skillGroups = `export const SKILL_GROUPS: SkillGroup[] = [
   { label: "數感與運算", topics: ["arithmetic"], recommendation: "依序檢查數感、四則運算、分數小數、比例百分率與單位轉換；先估算範圍，再用逆運算確認。" },
@@ -17,6 +18,19 @@ const skillGroups = `export const SKILL_GROUPS: SkillGroup[] = [
   { label: "線性代數", topics: ["linear-algebra"], recommendation: "從向量空間、線性映射、矩陣、秩與特徵結構逐層整理，並檢查維度與基底條件。" },
   { label: "分析與證明", topics: ["analysis"], recommendation: "每一步標明定義、量詞、定理條件與結論；特別檢查完備、緊緻、收斂型態與交換極限的前提。" },
 ];`;
+
+const calibrationStatusStyles = `
+
+.system-status.is-calibrating {
+  color: var(--danger);
+}
+
+.system-status.is-calibrating > span {
+  background: var(--danger);
+  box-shadow: 0 0 0 3px rgb(255 107 122 / 0.18), 0 0 16px var(--danger);
+  animation-duration: 0.85s;
+}
+`;
 
 async function patchMathData() {
   let source = await readFile(dataPath, "utf8");
@@ -267,6 +281,20 @@ function shouldStop(state: QuizState) {
     );
   }
 
+  if (!source.includes("const isCalibrationQuestion = phase === \"quiz\" && currentStep > BASE_QUESTIONS;")) {
+    source = source.replace(
+      "  const currentStep = Math.min(quizState.answers.length + (feedback ? 0 : 1), MAX_QUESTIONS);",
+      '  const currentStep = Math.min(quizState.answers.length + (feedback ? 0 : 1), MAX_QUESTIONS);\n  const isCalibrationQuestion = phase === "quiz" && currentStep > BASE_QUESTIONS;',
+    );
+  }
+
+  if (!source.includes("CALIBRATION SIGNAL")) {
+    source = source.replace(
+      '<div className="system-status"><span aria-hidden="true" /> ADAPTIVE SYSTEM ONLINE</div>',
+      '<div className={`system-status ${isCalibrationQuestion ? "is-calibrating" : ""}`} aria-live="polite"><span aria-hidden="true" /> {isCalibrationQuestion ? "CALIBRATION SIGNAL" : "ADAPTIVE SYSTEM ONLINE"}</div>',
+    );
+  }
+
   if (!source.includes("評量結構</span>")) {
     source = source.replace(
       '<div><span>題型覆蓋</span><strong>{coveredFormatCount} / 5 種</strong></div>',
@@ -282,5 +310,14 @@ function shouldStop(state: QuizState) {
   await writeFile(pagePath, source);
 }
 
+async function patchStyles() {
+  let source = await readFile(cssPath, "utf8");
+  if (!source.includes(".system-status.is-calibrating > span")) {
+    source += calibrationStatusStyles;
+  }
+  await writeFile(cssPath, source);
+}
+
 await patchMathData();
 await patchPage();
+await patchStyles();
