@@ -8,7 +8,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const imageUrl = `${protocol}://${host}/og.png`;
   const title = "數學等級評比器｜小四到碩士核心";
-  const description = "透過 10–12 題自適應數學關卡，估算你從小學四年級到碩士核心的目前能力區間。";
+  const description = "透過 14–16 題多元自適應數學關卡，估算小四到碩士核心的能力區間，並產生可列印的個人診斷單。";
 
   return {
     title,
