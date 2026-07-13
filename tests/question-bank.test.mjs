@@ -83,7 +83,7 @@ test("assessment stops at ten unless calibration signals require more evidence",
   assert.match(page, /評量結構：\$\{BASE_QUESTIONS\} 題標準掃描/);
 });
 
-test("calibration signal turns red as soon as extra evidence is required", async () => {
+test("calibration signal and progress lights turn red when extra evidence is required", async () => {
   const [page, css] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -94,11 +94,15 @@ test("calibration signal turns red as soon as extra evidence is required", async
   assert.match(page, /!shouldStop\(quizState\)/);
   assert.match(page, /currentStep > BASE_QUESTIONS \|\| \(Boolean\(feedback\) && calibrationRequired\)/);
   assert.match(page, /topbar screen-only \$\{isCalibrationQuestion \? "is-calibrating" : ""\}/);
+  assert.match(page, /segment-progress \$\{isCalibrationQuestion \? "is-calibrating" : ""\}/);
+  assert.match(page, /index >= BASE_QUESTIONS \? "calibration-segment" : "standard-segment"/);
   assert.match(page, /className="calibration-alert"/);
   assert.match(page, /校正模式啟動：系統正在確認能力區間/);
   assert.match(page, /CALIBRATION SIGNAL/);
   assert.match(css, /\.topbar\.is-calibrating/);
   assert.match(css, /\.system-status\.is-calibrating > span/);
+  assert.match(css, /\.segment-progress\.is-calibrating i\.calibration-segment\.done/);
+  assert.match(css, /\.segment-progress\.is-calibrating i\.calibration-segment\.current/);
   assert.match(css, /\.calibration-alert-light/);
   assert.match(css, /background: var\(--danger\)/);
 });
