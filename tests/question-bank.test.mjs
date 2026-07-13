@@ -62,13 +62,31 @@ test("diagnostic actions remain browser-local", async () => {
   assert.doesNotMatch(`${page}\n${deepAnalysis}`, /fetch\(|openai|chatgpt/i);
 });
 
+test("assessment stops at ten unless calibration signals require more evidence", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /BASE_QUESTIONS = 10/);
+  assert.match(page, /MAX_QUESTIONS = 14/);
+  assert.match(page, /function calibrationReasons/);
+  assert.match(page, /intervalWidth > 3\.4/);
+  assert.match(page, /coveredTopics < 4/);
+  assert.match(page, /coveredFormats < 4/);
+  assert.match(page, /hardWins >= 2/);
+  assert.match(page, /highExpectationMisses >= 2/);
+  assert.match(page, /Math\.abs\(firstAccuracy - secondAccuracy\) >= 50/);
+  assert.match(page, /return calibrationReasons\(state\)\.length === 0/);
+  assert.match(page, /calibrationNearby/);
+  assert.match(page, /calibrationTopicBonus/);
+  assert.match(page, /CALIBRATION MODE/);
+  assert.match(page, /進入校正題/);
+  assert.match(page, /10 題標準掃描/);
+});
+
 test("result includes granular performance analysis", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const deepAnalysis = await readFile(new URL("../app/deep-analysis-panel.tsx", import.meta.url), "utf8");
 
   assert.match(page, /DeepAnalysisPanel/);
-  assert.match(page, /MIN_QUESTIONS = 16/);
-  assert.match(page, /MAX_QUESTIONS = 20/);
   assert.match(deepAnalysis, /題型剖面/);
   assert.match(deepAnalysis, /難度帶表現/);
   assert.match(deepAnalysis, /前後段趨勢/);
