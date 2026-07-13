@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">MATH//SCAN maskable app icon</title>
+  <desc id="desc">A mask-safe dark pixel-style mathematics scanner icon.</desc>
+  <rect width="512" height="512" fill="#080d1a"/>
+  <rect x="76" y="76" width="360" height="360" rx="64" fill="#101a2d" stroke="#58f4ff" stroke-width="12"/>
+  <path d="M118 176v-58h58M394 176v-58h-58M118 336v58h58M394 336v58h-58" fill="none" stroke="#b89cff" stroke-width="16" stroke-linecap="square"/>
+  <path d="M158 318V202h34l38 62 38-62h34v116h-34v-62l-29 47h-18l-29-47v62z" fill="#f5f7ff"/>
+  <rect x="146" y="342" width="220" height="14" fill="#58f4ff"/>
+  <circle cx="344" cy="168" r="25" fill="#58f4ff"/>
+  <path d="M331 168h26M344 155v26" stroke="#080d1a" stroke-width="8" stroke-linecap="square"/>
+</svg>
