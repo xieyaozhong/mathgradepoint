@@ -49,3 +49,17 @@ jobs:
       - name: Fail when Pages build failed
         if: steps.pages_build.outputs.status != '0'
         run: exit 1
+
+      - name: Verify public v7 release
+        if: steps.pages_build.outputs.status == '0'
+        shell: bash
+        run: |
+          for attempt in {1..18}; do
+            if curl -fsSL -H 'Cache-Control: no-cache' "https://xieyaozhong.github.io/mathgradepoint/?release=calibration-progress-v7-${attempt}" | grep -q '2026-07-13-calibration-progress-v7'; then
+              echo "Public v7 release marker found."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Public v7 release marker was not found."
+          exit 1
