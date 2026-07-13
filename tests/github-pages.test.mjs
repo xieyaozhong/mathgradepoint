@@ -11,6 +11,8 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   const expectedPublicPrefix = pagesBasePath ? `${pagesBasePath}/` : "./";
 
   assert.match(html, /<title>數學等級評比器/);
+  assert.match(html, /2026-07-13-calibration-red-light-v5/);
+  assert.match(html, /標準掃描 10 題/);
   assert.ok(html.includes(expectedAssetPrefix));
   assert.ok(
     html.includes(`href="${expectedPublicPrefix}manifest.webmanifest"`),
@@ -53,7 +55,18 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.match(serviceWorker, /navigationPreload/);
   assert.match(serviceWorker, /apple-touch-icon\.png/);
   assert.match(serviceWorker, /app-icon-192\.jpg/);
-  assert.match(serviceWorker, /v3-ios-png-icon/);
+  assert.match(serviceWorker, /v5-calibration-red-light-20260713/);
+  assert.match(serviceWorker, /request\.destination === "script"/);
+  assert.match(serviceWorker, /cache: "no-cache"/);
+
+  const registrationSource = await readFile(
+    new URL("../github/src/main.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(registrationSource, /2026-07-13-calibration-red-light-v5/);
+  assert.match(registrationSource, /controllerchange/);
+  assert.match(registrationSource, /SKIP_WAITING/);
+  assert.match(registrationSource, /updateViaCache: "none"/);
 
   await Promise.all([
     access(new URL("og.png", outputUrl)),

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "math-scan-pwa";
-const CACHE_VERSION = "v3-ios-png-icon";
+const CACHE_VERSION = "v5-calibration-red-light-20260713";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const APP_ROOT = new URL(self.registration.scope);
 const APP_SHELL = [
@@ -96,7 +96,7 @@ async function networkFirst(request, preloadResponsePromise) {
     const preloadResponse = preloadResponsePromise
       ? await preloadResponsePromise
       : undefined;
-    const response = preloadResponse || (await fetch(request));
+    const response = preloadResponse || (await fetch(request, { cache: "no-cache" }));
 
     if (isCacheable(response)) {
       await cache.put(request, response.clone());
@@ -138,6 +138,16 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, event.preloadResponse));
+    return;
+  }
+
+  if (
+    request.destination === "script" ||
+    request.destination === "style" ||
+    request.destination === "worker" ||
+    url.pathname.endsWith("manifest.webmanifest")
+  ) {
+    event.respondWith(networkFirst(request));
     return;
   }
 

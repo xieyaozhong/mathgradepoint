@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "../../app/page";
 import "../../app/globals.css";
 
+const RELEASE_ID = "2026-07-13-calibration-red-light-v5";
 const root = document.getElementById("root");
 
 if (!root) {
@@ -16,18 +17,51 @@ createRoot(root).render(
 );
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
+  let refreshing = false;
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+
+  window.addEventListener("load", async () => {
     const manifestLink = document.querySelector<HTMLLinkElement>(
       'link[rel="manifest"]',
     );
     const appBaseUrl = new URL("./", manifestLink?.href ?? document.baseURI);
-    const serviceWorkerUrl = new URL("sw.js", appBaseUrl);
+    const serviceWorkerUrl = new URL(`sw.js?release=${RELEASE_ID}`, appBaseUrl);
 
-    navigator.serviceWorker
-      .register(serviceWorkerUrl.toString(), { scope: appBaseUrl.pathname })
-      .then((registration) => registration.update())
-      .catch((error: unknown) => {
-        console.warn("PWA service worker registration failed", error);
+    try {
+      const registration = await navigator.serviceWorker.register(
+        serviceWorkerUrl.toString(),
+        {
+          scope: appBaseUrl.pathname,
+          updateViaCache: "none",
+        },
+      );
+
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+
+      registration.addEventListener("updatefound", () => {
+        const installingWorker = registration.installing;
+        if (!installingWorker) return;
+
+        installingWorker.addEventListener("statechange", () => {
+          if (
+            installingWorker.state === "installed" &&
+            navigator.serviceWorker.controller
+          ) {
+            installingWorker.postMessage({ type: "SKIP_WAITING" });
+          }
+        });
       });
+
+      await registration.update();
+    } catch (error: unknown) {
+      console.warn("PWA service worker registration failed", error);
+    }
   });
 }
