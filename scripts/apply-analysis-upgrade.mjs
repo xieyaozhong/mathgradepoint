@@ -48,19 +48,187 @@ async function patchPage() {
       '} from "./math-data";\nimport DeepAnalysisPanel, { makeDeepAnalysis } from "./deep-analysis-panel";\n',
     );
   }
+
   source = source
-    .replace("const MIN_QUESTIONS = 14;", "const MIN_QUESTIONS = 16;")
-    .replace("const MAX_QUESTIONS = 16;", "const MAX_QUESTIONS = 20;")
-    .replace("const RECENT_ITEMS_KEY = \"math-scan-recent-items-v2\";", "const RECENT_ITEMS_KEY = \"math-scan-recent-items-v3\";")
-    .replace("DIAGNOSTIC v2.0", "DIAGNOSTIC v3.0")
-    .replace("MATH//SCAN · REPORT v2.0", "MATH//SCAN · REPORT v3.0")
-    .replace("<div><strong>14–16</strong><span>自適應題數</span></div>", "<div><strong>{MIN_QUESTIONS}–{MAX_QUESTIONS}</strong><span>自適應題數</span></div>")
-    .replace("<div><strong>60 題</strong><span>多元題庫</span></div>", "<div><strong>{BANK.length} 題</strong><span>多元題庫</span></div>");
+    .replace(
+      /const (?:MIN|BASE)_QUESTIONS = \d+;\nconst MAX_QUESTIONS = \d+;/,
+      "const BASE_QUESTIONS = 10;\nconst MAX_QUESTIONS = 14;",
+    )
+    .replace(
+      /const RECENT_ITEMS_KEY = "math-scan-recent-items-v\d+";/,
+      'const RECENT_ITEMS_KEY = "math-scan-recent-items-v4";',
+    )
+    .replace(/DIAGNOSTIC v\d+\.\d+/, "DIAGNOSTIC v4.0")
+    .replace(/MATH\/\/SCAN · REPORT v\d+\.\d+/, "MATH//SCAN · REPORT v4.0")
+    .replace(
+      /<div><strong>(?:14–16|\{MIN_QUESTIONS\}–\{MAX_QUESTIONS\}|\{BASE_QUESTIONS\}–\{MAX_QUESTIONS\})<\/strong><span>自適應題數<\/span><\/div>/,
+      "<div><strong>{BASE_QUESTIONS} 題</strong><span>標準掃描</span></div>",
+    )
+    .replace(
+      "<div><strong>5 種</strong><span>題型輪替</span></div>",
+      "<div><strong>最多 {MAX_QUESTIONS}</strong><span>特殊校正</span></div>",
+    )
+    .replace(
+      "<div><strong>60 題</strong><span>多元題庫</span></div>",
+      "<div><strong>{BANK.length} 題</strong><span>多元題庫</span></div>",
+    )
+    .replace(
+      "從小學四年級到碩士核心，以多元題型、自適應難度與跨領域取樣，產生可下載的個人能力診斷。",
+      "從小學四年級到碩士核心，通常以 10 題完成能力定位；只有證據矛盾或區間過寬時，才追加校正題。",
+    )
+    .replace(
+      "<li><span>02</span> 難度依作答表現調整，並避免連續相同領域</li>",
+      "<li><span>02</span> 先完成 10 題；特殊訊號出現時才追加最多 4 題校正</li>",
+    );
+
+  if (!source.includes("function calibrationFocus(")) {
+    source = source.replace(
+      "function chooseNextQuestion(state: QuizState, recentIds: string[]) {",
+      `function calibrationFocus(state: QuizState) {
+  const topics = new Set<Topic>();
+  const formats = new Set<QuestionFormat>();
+  const topicOutcomes = new Map<Topic, Set<boolean>>();
+  const formatOutcomes = new Map<QuestionFormat, Set<boolean>>();
+
+  state.answers.forEach((answer) => {
+    const unusual =
+      (answer.correct && answer.expectedCorrectProbability < 0.55) ||
+      (!answer.correct && answer.expectedCorrectProbability >= 0.7);
+    if (unusual) {
+      topics.add(answer.topic);
+      formats.add(answer.format);
+    }
+    const topicSet = topicOutcomes.get(answer.topic) ?? new Set<boolean>();
+    topicSet.add(answer.correct);
+    topicOutcomes.set(answer.topic, topicSet);
+    const formatSet = formatOutcomes.get(answer.format) ?? new Set<boolean>();
+    formatSet.add(answer.correct);
+    formatOutcomes.set(answer.format, formatSet);
+  });
+
+  topicOutcomes.forEach((outcomes, topic) => {
+    if (outcomes.size > 1) topics.add(topic);
+  });
+  formatOutcomes.forEach((outcomes, format) => {
+    if (outcomes.size > 1) formats.add(format);
+  });
+  return { topics, formats };
+}
+
+function chooseNextQuestion(state: QuizState, recentIds: string[]) {`,
+    );
+  }
+
+  if (!source.includes("const calibrating = state.answers.length >= BASE_QUESTIONS;")) {
+    source = source.replace(
+      `  const mean = posteriorMean(state);
+  const unused = BANK.filter((item) => !state.askedIds.includes(item.id));
+  const nearby = unused.filter((item) => Math.abs(item.b - mean) <= 3);
+  const candidates = nearby.length >= 5 ? nearby : unused;`,
+      `  const mean = posteriorMean(state);
+  const calibrating = state.answers.length >= BASE_QUESTIONS;
+  const calibration = calibrationFocus(state);
+  const unused = BANK.filter((item) => !state.askedIds.includes(item.id));
+  const nearby = unused.filter((item) => Math.abs(item.b - mean) <= 3);
+  const calibrationNearby = unused.filter((item) => Math.abs(item.b - mean) <= 1.5);
+  const candidates =
+    calibrating && calibrationNearby.length >= 4
+      ? calibrationNearby
+      : nearby.length >= 5
+        ? nearby
+        : unused;`,
+    );
+    source = source.replace(
+      "    const distancePenalty = 0.008 * Math.abs(item.b - mean);",
+      `    const calibrationTopicBonus =
+      calibrating && calibration.topics.has(item.topic) ? 0.16 : 0;
+    const calibrationFormatBonus =
+      calibrating && calibration.formats.has(item.format) ? 0.1 : 0;
+    const distancePenalty =
+      (calibrating ? 0.035 : 0.008) * Math.abs(item.b - mean);`,
+    );
+    source = source.replace(
+      `        unseenFormatBonus +
+        jitter -`,
+      `        unseenFormatBonus +
+        calibrationTopicBonus +
+        calibrationFormatBonus +
+        jitter -`,
+    );
+  }
+
+  if (!source.includes("function calibrationReasons(")) {
+    source = source.replace(
+      /function shouldStop\(state: QuizState\) \{[\s\S]*?\n\}/,
+      `function calibrationReasons(state: QuizState) {
+  if (state.answers.length < BASE_QUESTIONS) return [] as string[];
+
+  const reasons: string[] = [];
+  const intervalWidth = quantile(state, 0.9) - quantile(state, 0.1);
+  if (intervalWidth > 3.4) reasons.push("能力區間仍寬");
+
+  const coveredTopics = new Set(state.answers.map((answer) => answer.topic)).size;
+  const coveredFormats = new Set(state.answers.map((answer) => answer.format)).size;
+  if (coveredTopics < 4) reasons.push("領域覆蓋不足");
+  if (coveredFormats < 4) reasons.push("題型覆蓋不足");
+
+  const hardWins = state.answers.filter(
+    (answer) => answer.correct && answer.expectedCorrectProbability < 0.55,
+  ).length;
+  const highExpectationMisses = state.answers.filter(
+    (answer) => !answer.correct && answer.expectedCorrectProbability >= 0.7,
+  ).length;
+  if (hardWins >= 2) reasons.push("高難度表現超出預估");
+  if (highExpectationMisses >= 2) reasons.push("基礎表現低於預估");
+
+  const split = Math.ceil(state.answers.length / 2);
+  const firstHalf = state.answers.slice(0, split);
+  const secondHalf = state.answers.slice(split);
+  const accuracy = (answers: AnswerRecord[]) =>
+    answers.length
+      ? (100 * answers.filter((answer) => answer.correct).length) / answers.length
+      : null;
+  const firstAccuracy = accuracy(firstHalf);
+  const secondAccuracy = accuracy(secondHalf);
+  if (
+    firstAccuracy !== null &&
+    secondAccuracy !== null &&
+    Math.abs(firstAccuracy - secondAccuracy) >= 50
+  ) {
+    reasons.push("前後段表現差異較大");
+  }
+
+  return reasons;
+}
+
+function shouldStop(state: QuizState) {
+  if (state.answers.length < BASE_QUESTIONS) return false;
+  if (state.answers.length >= MAX_QUESTIONS) return true;
+  return calibrationReasons(state).length === 0;
+}`,
+    );
+  }
+
+  if (!source.includes("const calibrationCount = Math.max(0, quizState.answers.length - BASE_QUESTIONS);")) {
+    source = source.replace(
+      "    const reviewItems = quizState.answers.filter((answer) => !answer.correct);",
+      `    const reviewItems = quizState.answers.filter((answer) => !answer.correct);
+    const calibrationCount = Math.max(0, quizState.answers.length - BASE_QUESTIONS);
+    const finalCalibrationReasons = calibrationReasons(quizState);`,
+    );
+  }
 
   if (!source.includes("const deepAnalysis = makeDeepAnalysis(quizState.answers, result.ability);")) {
     source = source.replace(
-      "    const reviewItems = quizState.answers.filter((answer) => !answer.correct);",
-      "    const reviewItems = quizState.answers.filter((answer) => !answer.correct);\n    const deepAnalysis = makeDeepAnalysis(quizState.answers, result.ability);",
+      "    const finalCalibrationReasons = calibrationReasons(quizState);",
+      "    const finalCalibrationReasons = calibrationReasons(quizState);\n    const deepAnalysis = makeDeepAnalysis(quizState.answers, result.ability);",
+    );
+  }
+
+  if (!source.includes("評量結構：${BASE_QUESTIONS} 題標準掃描")) {
+    source = source.replace(
+      '      `作答計時：${formatDuration(totalAnswerSeconds)}`,',
+      '      `作答計時：${formatDuration(totalAnswerSeconds)}`,\n      `評量結構：${BASE_QUESTIONS} 題標準掃描 + ${calibrationCount} 題校正`,\n      `校正狀態：${calibrationCount ? (finalCalibrationReasons.length ? `達上限後仍有：${finalCalibrationReasons.join("、")}` : "校正後證據已收斂") : "第 10 題後證據一致，未追加題目"}`,',
     );
   }
 
@@ -78,10 +246,39 @@ async function patchPage() {
     );
   }
 
+  if (!source.includes("校正題：確認能力區間")) {
+    source = source.replace(
+      '<div className="question-meta"><span>關卡 {String(currentStep).padStart(2, "0")}</span><span>選出唯一正確答案</span></div>',
+      '<div className="question-meta"><span>關卡 {String(currentStep).padStart(2, "0")}</span><span>{quizState.answers.length >= BASE_QUESTIONS ? "校正題：確認能力區間" : "選出唯一正確答案"}</span></div>',
+    );
+  }
+
+  if (!source.includes("CALIBRATION MODE")) {
+    source = source.replace(
+      '<span className="adaptive-note"><i aria-hidden="true" /> DIVERSITY + BAYES CALIBRATION</span>',
+      '<span className="adaptive-note"><i aria-hidden="true" /> {quizState.answers.length >= BASE_QUESTIONS ? "CALIBRATION MODE" : "DIVERSITY + BAYES CALIBRATION"}</span>',
+    );
+  }
+
+  if (!source.includes('"進入校正題"')) {
+    source = source.replace(
+      '{shouldStop(quizState) ? "產生診斷單" : "進入下一關"}',
+      '{shouldStop(quizState) ? "產生診斷單" : quizState.answers.length >= BASE_QUESTIONS ? "進入校正題" : "進入下一關"}',
+    );
+  }
+
+  if (!source.includes("評量結構</span>")) {
+    source = source.replace(
+      '<div><span>題型覆蓋</span><strong>{coveredFormatCount} / 5 種</strong></div>',
+      '<div><span>題型覆蓋</span><strong>{coveredFormatCount} / 5 種</strong></div>\n                  <div><span>評量結構</span><strong>{BASE_QUESTIONS} + {Math.max(0, quizState.answers.length - BASE_QUESTIONS)} 題校正</strong></div>',
+    );
+  }
+
   source = source.replace(
     "本工具依本次題目、難度路徑、正確率與作答時間進行 Bayesian 能力估算",
     "本工具依本次題目、難度路徑、正確率、題型剖面、作答時間與前後段穩定性進行 Bayesian 能力估算",
   );
+
   await writeFile(pagePath, source);
 }
 
