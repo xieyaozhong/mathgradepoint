@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "math-scan-pwa";
-const CACHE_VERSION = "v5-calibration-red-light-20260713";
+const CACHE_VERSION = "v8-multiscan-20260715";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const APP_ROOT = new URL(self.registration.scope);
 const APP_SHELL = [

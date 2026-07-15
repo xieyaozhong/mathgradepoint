@@ -281,7 +281,7 @@ function shouldStop(state: QuizState) {
     );
   }
 
-  if (!source.includes("const isCalibrationQuestion = phase === \"quiz\" && currentStep > BASE_QUESTIONS;")) {
+  if (!source.includes("const isCalibrationQuestion")) {
     source = source.replace(
       "  const currentStep = Math.min(quizState.answers.length + (feedback ? 0 : 1), MAX_QUESTIONS);",
       '  const currentStep = Math.min(quizState.answers.length + (feedback ? 0 : 1), MAX_QUESTIONS);\n  const isCalibrationQuestion = phase === "quiz" && currentStep > BASE_QUESTIONS;',

@@ -57,10 +57,14 @@ test("question bank has expanded balanced coverage and diverse formats", async (
 test("diagnostic actions remain browser-local", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const deepAnalysis = await readFile(new URL("../app/deep-analysis-panel.tsx", import.meta.url), "utf8");
+  const history = await readFile(new URL("../app/history-engine.js", import.meta.url), "utf8");
   assert.match(page, /window\.print\(\)/);
   assert.match(page, /下載文字診斷/);
   assert.match(page, /localStorage/);
-  assert.doesNotMatch(`${page}\n${deepAnalysis}`, /fetch\(|openai|chatgpt/i);
+  assert.match(page, /訪客模式/);
+  assert.match(page, /clearAssessmentHistory/);
+  assert.doesNotMatch(`${page}\n${deepAnalysis}`, /fetch\(|sendBeacon|WebSocket|openai|chatgpt/i);
+  assert.doesNotMatch(history, /learnerName|prompt|rationale|correctAnswer/);
 });
 
 test("assessment stops at ten unless calibration signals require more evidence", async () => {
@@ -118,6 +122,39 @@ test("result includes granular performance analysis", async () => {
   assert.match(deepAnalysis, /超預期命中/);
   assert.match(deepAnalysis, /校準差/);
   assert.match(deepAnalysis, /平均作答節奏/);
+});
+
+test("multi-attempt scoring is robust to stale and repeated evidence", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const history = await readFile(new URL("../app/history-engine.js", import.meta.url), "utf8");
+
+  assert.match(history, /ageDays \/ 120/);
+  assert.match(history, /MAX_HISTORICAL_WEIGHT = 10/);
+  assert.match(history, /latestByQuestion\.set/);
+  assert.match(history, /0\.85 \* value \+ 0\.15 \* uniform/);
+  assert.match(page, /historyWithoutRetestedItems/);
+  assert.match(page, /previouslySeen \? 0\.58 : 1/);
+  assert.match(page, /posteriorBeforeAnswer/);
+  assert.match(page, /activeHistoryBaseline\.effectiveAnswerCount \* historyPower/);
+  assert.match(page, /weight = affinity \* relevance \* answer\.evidenceWeight/);
+  assert.match(page, /weightedCorrect/);
+  assert.match(page, /sessionIntervalWidth > 3\.8/);
+  assert.match(page, /historyPower/);
+});
+
+test("result provides a complete item-by-item audit", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /每題分析/);
+  assert.match(page, /quizState\.answers\.map\(\(answer, index\) => makeQuestionAnalysis/);
+  assert.match(page, /你的答案/);
+  assert.match(page, /參考答案/);
+  assert.match(page, /作答時間/);
+  assert.match(page, /本題證據/);
+  assert.match(page, /判讀只描述可觀察的作答訊號/);
+  assert.match(page, /快速檢查/);
+  assert.match(page, /重複題降權/);
+  assert.match(page, /questionAnalyses\.map/);
 });
 
 test("result recommends one public learning route with progressive support", async () => {

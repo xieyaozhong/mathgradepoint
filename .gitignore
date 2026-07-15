@@ -37,8 +37,11 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
+*.tsbuildinfo
 /dist/
 /github-dist/
 /.wrangler/
 /outputs/
 /work/
+/public/app-icon-192.jpg
+/public/apple-touch-icon.png

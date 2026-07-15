@@ -205,7 +205,7 @@ async function patchServiceWorker() {
   let source = await readFile(serviceWorkerPath, "utf8");
   source = source.replace(
     /const CACHE_VERSION = "[^"]+";/,
-    'const CACHE_VERSION = "v7-calibration-progress-20260713";',
+    'const CACHE_VERSION = "v8-multiscan-20260715";',
   );
   await writeFile(serviceWorkerPath, source);
 }
