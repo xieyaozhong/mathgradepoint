@@ -8,7 +8,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.includes("localhost") ? "http" : "https");
   const imageUrl = `${protocol}://${host}/og.png`;
   const title = "數學等級評比器｜小四到碩士核心";
-  const description = "透過 14–16 題多元自適應數學關卡，估算小四到碩士核心的能力區間，並產生可列印的個人診斷單。";
+  const description = "通常以 10 題完成跨次校準，必要時追加最多 4 題，並產生含每題分析與學習武器的個人診斷單。";
 
   return {
     title,
@@ -18,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       type: "website",
       locale: "zh_TW",
-      images: [{ url: imageUrl, width: 1728, height: 906, alt: "MATH//SCAN 數學等級評比器" }],
+      images: [{ url: imageUrl, width: 1729, height: 910, alt: "MATH//SCAN 數學等級評比器" }],
     },
     twitter: { card: "summary_large_image", title, description, images: [imageUrl] },
   };

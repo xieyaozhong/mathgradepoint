@@ -1,3 +1,5 @@
+import { EXTRA_BANK } from "./extra-questions";
+
 export type Topic =
   | "arithmetic"
   | "geometry"
@@ -66,12 +68,15 @@ export type SkillGroup = {
 };
 
 export const SKILL_GROUPS: SkillGroup[] = [
-  { label: "數與運算", topics: ["arithmetic"], recommendation: "先估算答案範圍，再用逆運算或代入檢查；逐步補強分數、小數、比例與單位轉換。" },
-  { label: "代數與函數", topics: ["algebra", "functions"], recommendation: "分開整理已知量、未知量與限制，再練習在文字、表格、圖形和公式之間轉換。" },
-  { label: "幾何與空間", topics: ["geometry", "trigonometry"], recommendation: "先畫圖並標記條件，再選擇性質或定理；完成後檢查長度、角度與單位是否合理。" },
-  { label: "資料、機率與統計", topics: ["data-probability"], recommendation: "先確認資料、樣本與問題目標，再選擇合適的統計量，並留意不確定性與結論範圍。" },
-  { label: "微積分與變化", topics: ["calculus"], recommendation: "把極限、導數與積分連回趨勢、變化率與累積量，再由圖形直覺走向符號推導。" },
-  { label: "抽象、證明與結構", topics: ["linear-algebra", "analysis"], recommendation: "每一步標明所用定義或定理，區分條件、結論與中間命題，並檢查定理的適用前提。" },
+  { label: "數感與運算", topics: ["arithmetic"], recommendation: "依序檢查數感、四則運算、分數小數、比例百分率與單位轉換；先估算範圍，再用逆運算確認。" },
+  { label: "幾何與空間", topics: ["geometry"], recommendation: "先畫圖並完整標記已知條件，再辨認周長、面積、相似、圓與座標幾何所需性質。" },
+  { label: "代數推理", topics: ["algebra"], recommendation: "把文字條件翻成等式、不等式或因式結構；逐行保留等價變形，最後代回檢查。" },
+  { label: "函數與規律", topics: ["functions"], recommendation: "在表格、圖形、公式與數列之間切換，特別留意定義域、變化率、平移與極限行為。" },
+  { label: "三角關係", topics: ["trigonometry"], recommendation: "先確認象限、角度與邊的對應，再使用基本恆等式、特殊角或角度和差公式。" },
+  { label: "資料與機率", topics: ["data-probability"], recommendation: "區分資料中心、離散程度、條件機率與隨機變數；先寫清楚樣本空間與事件。" },
+  { label: "微積分與變化", topics: ["calculus"], recommendation: "把極限、導數、積分與微分方程連回變化率、累積量與局部近似，再完成符號推導。" },
+  { label: "線性代數", topics: ["linear-algebra"], recommendation: "從向量空間、線性映射、矩陣、秩與特徵結構逐層整理，並檢查維度與基底條件。" },
+  { label: "分析與證明", topics: ["analysis"], recommendation: "每一步標明定義、量詞、定理條件與結論；特別檢查完備、緊緻、收斂型態與交換極限的前提。" },
 ];
 
 const q = (
@@ -86,7 +91,7 @@ const q = (
   a = 1.28,
 ): Question => ({ id, level, topic, format, prompt, choices, correctIndex, rationale, b: level, a });
 
-export const BANK: Question[] = [
+const CORE_BANK: Question[] = [
   q("g4-1", 1, "arithmetic", "calculation", "28 的 3/4 是多少？", ["18", "21", "24", "25"], 1, "28 ÷ 4 × 3 = 21。"),
   q("g4-2", 1, "arithmetic", "application", "2 小時 35 分鐘再加 50 分鐘，共多久？", ["2 小時 45 分", "3 小時 15 分", "3 小時 25 分", "3 小時 35 分"], 2, "35 + 50 = 85 分，也就是 1 小時 25 分；合計 3 小時 25 分。"),
   q("g4-3", 1, "geometry", "application", "正方形的周長是 36 公分，它的面積是多少？", ["18 平方公分", "36 平方公分", "72 平方公分", "81 平方公分"], 3, "邊長為 36 ÷ 4 = 9 公分，面積為 9 × 9 = 81 平方公分。"),
@@ -159,3 +164,5 @@ export const BANK: Question[] = [
   q("m-4", 12, "data-probability", "reasoning", "對獨立同分布樣本 X₁,…,Xₙ，若 E[Xᵢ]=μ，哪一個是 μ 的不偏估計量？", ["樣本平均 X̄", "樣本最大值", "樣本變異數除以 n", "exp(X̄)"], 0, "E[X̄]=(1/n)ΣE[Xᵢ]=μ，因此樣本平均是不偏估計量。", 1.35),
   q("m-5", 12, "analysis", "concept", "嚴格凸函數在凸集合上若存在最小值，則下列何者正確？", ["最小值點至多一個", "每一點都是最小值點", "必有無限多個最小值點", "只有可微時才可能有最小值"], 0, "若有兩個不同最小值點，嚴格凸性會使兩點間的函數值更小，產生矛盾。", 1.35),
 ];
+
+export const BANK: Question[] = [...CORE_BANK, ...EXTRA_BANK];

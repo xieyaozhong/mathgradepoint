@@ -11,8 +11,8 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   const expectedPublicPrefix = pagesBasePath ? `${pagesBasePath}/` : "./";
 
   assert.match(html, /<title>數學等級評比器/);
-  assert.match(html, /2026-07-13-calibration-progress-v7/);
-  assert.match(html, /標準掃描 10 題/);
+  assert.match(html, /2026-07-15-multiscan-v8/);
+  assert.match(html, /通常以 10 題完成跨次校準/);
   assert.ok(html.includes(expectedAssetPrefix));
   assert.ok(
     html.includes(`href="${expectedPublicPrefix}manifest.webmanifest"`),
@@ -24,7 +24,6 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
     html.includes(`href="${expectedPublicPrefix}apple-touch-icon.png"`),
   );
   assert.doesNotMatch(html, /__SITE_URL__/);
-
   const manifest = JSON.parse(
     await readFile(new URL("manifest.webmanifest", outputUrl), "utf8"),
   );
@@ -55,7 +54,7 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
   assert.match(serviceWorker, /navigationPreload/);
   assert.match(serviceWorker, /apple-touch-icon\.png/);
   assert.match(serviceWorker, /app-icon-192\.jpg/);
-  assert.match(serviceWorker, /v7-calibration-progress-20260713/);
+  assert.match(serviceWorker, /v8-multiscan-20260715/);
   assert.match(serviceWorker, /request\.destination === "script"/);
   assert.match(serviceWorker, /cache: "no-cache"/);
 
@@ -63,7 +62,7 @@ test("GitHub Pages build is self-contained and uses relative assets", async () =
     new URL("../github/src/main.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(registrationSource, /2026-07-13-calibration-progress-v7/);
+  assert.match(registrationSource, /2026-07-15-multiscan-v8/);
   assert.match(registrationSource, /controllerchange/);
   assert.match(registrationSource, /SKIP_WAITING/);
   assert.match(registrationSource, /updateViaCache: "none"/);

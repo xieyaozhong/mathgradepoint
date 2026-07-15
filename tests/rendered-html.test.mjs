@@ -24,9 +24,11 @@ test("server-renders the finished assessment shell", async () => {
   const html = await response.text();
   assert.match(html, /<title>數學等級評比器/);
   assert.match(html, /MATH\/\/SCAN/);
-  assert.match(html, /DIAGNOSTIC v2\.0/);
-  assert.match(html, /60(?:<!-- -->)?-ITEM BANK/);
-  assert.match(html, /產生可下載的個人能力診斷/);
+  assert.match(html, /DIAGNOSTIC v4\.0/);
+  assert.match(html, /120(?:<!-- -->)?-ITEM BANK/);
+  assert.match(html, /通常以 10 題完成能力定位/);
+  assert.match(html, /多次評量採近期加權、同題去重/);
+  assert.match(html, /訪客模式不讀取也不寫入歷史/);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape|Codex is working/i);
 });
 
