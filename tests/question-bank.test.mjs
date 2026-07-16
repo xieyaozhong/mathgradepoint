@@ -9,7 +9,7 @@ const coreSourceUrl = new URL("../app/math-data.ts", import.meta.url);
 const extraSourceUrl = new URL("../app/extra-questions.ts", import.meta.url);
 
 function extractItems(source) {
-  return [...source.matchAll(/q\("([^"]+)",\s*(\d+),\s*"([^"]+)",\s*"([^"]+)"/g)].map((match) => ({
+  return [...source.matchAll(/q\(\s*"([^"]+)",\s*(\d+),\s*"([^"]+)",\s*"([^"]+)"/g)].map((match) => ({
     id: match[1],
     level: Number(match[2]),
     topic: match[3],
@@ -24,12 +24,12 @@ test("question bank has expanded balanced coverage and diverse formats", async (
   ]);
   const items = [...extractItems(coreSource), ...extractItems(extraSource)];
 
-  assert.equal(items.length, 120);
+  assert.equal(items.length, 160);
   assert.equal(new Set(items.map((item) => item.id)).size, items.length);
 
   for (let level = 1; level <= 12; level += 1) {
     const levelItems = items.filter((item) => item.level === level);
-    assert.equal(levelItems.length, 10, `level ${level} should have ten items`);
+    assert.ok(levelItems.length >= 12, `level ${level} should have at least twelve items`);
     assert.ok(new Set(levelItems.map((item) => item.format)).size >= 3, `level ${level} should cover at least three formats`);
   }
 
@@ -143,18 +143,35 @@ test("multi-attempt scoring is robust to stale and repeated evidence", async () 
 });
 
 test("result provides a complete item-by-item audit", async () => {
-  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const [page, css, observations] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+    readFile(new URL("../app/answer-observations.js", import.meta.url), "utf8"),
+  ]);
 
   assert.match(page, /每題分析/);
-  assert.match(page, /quizState\.answers\.map\(\(answer, index\) => makeQuestionAnalysis/);
+  assert.match(page, /quizState\.answers\.map\(\(answer, index\) =>/);
+  assert.match(page, /makeQuestionAnalysis\(answer, index, previousAnswer\)/);
   assert.match(page, /你的答案/);
   assert.match(page, /參考答案/);
   assert.match(page, /作答時間/);
   assert.match(page, /本題證據/);
   assert.match(page, /判讀只描述可觀察的作答訊號/);
   assert.match(page, /快速檢查/);
-  assert.match(page, /重複題降權/);
+  assert.match(`${page}\n${observations}`, /重複題降權/);
   assert.match(page, /questionAnalyses\.map/);
+  assert.match(page, /狀態色譜/);
+  assert.match(page, /命中訊號/);
+  assert.match(page, /速度訊號/);
+  assert.match(page, /跨次訊號/);
+  for (const label of ["穩定命中", "高難命中", "能力邊界命中", "快速命中", "命中但可加速", "高預期失誤", "快速作答失誤", "思考後仍待確認", "需要再確認"]) {
+    assert.match(`${page}\n${observations}`, new RegExp(label));
+  }
+  for (const tone of ["stable", "challenge", "boundary", "efficient", "slow", "surprise", "rushed", "deliberate", "review"]) {
+    assert.match(css, new RegExp(`state-${tone}`));
+    assert.match(css, new RegExp(`signal-${tone}`));
+  }
+  assert.doesNotMatch(observations, /你在猜答|你很粗心|已形成迷思|表示你退步|你不專心/);
 });
 
 test("result recommends one public learning route with progressive support", async () => {

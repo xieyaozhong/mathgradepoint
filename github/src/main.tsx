@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "../../app/page";
 import "../../app/globals.css";
 
-const RELEASE_ID = "2026-07-15-multiscan-v8";
+const RELEASE_ID = "2026-07-16-signals-v9";
 const root = document.getElementById("root");
 
 if (!root) {

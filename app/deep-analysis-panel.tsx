@@ -272,7 +272,7 @@ export default function DeepAnalysisPanel({
         <article>
           <span>CALIBRATION</span>
           <h3>{analysis.hardWins} 次超預期命中</h3>
-          <strong>{analysis.unexpectedMisses} 次基礎失誤 · 校準差 {analysis.calibrationGap > 0 ? "+" : ""}{analysis.calibrationGap}%</strong>
+          <strong>{analysis.unexpectedMisses} 次高預期失誤 · 校準差 {analysis.calibrationGap > 0 ? "+" : ""}{analysis.calibrationGap}%</strong>
           <p>超預期命中代表可延伸能力；高預期題失誤較多時，應先檢查粗心、讀題與基本流程。</p>
         </article>
       </div>
