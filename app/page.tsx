@@ -13,6 +13,10 @@ import {
 } from "./math-data";
 import DeepAnalysisPanel, { makeDeepAnalysis } from "./deep-analysis-panel";
 import {
+  classifyAnswerObservation,
+  findLatestHistoricalAnswer,
+} from "./answer-observations";
+import {
   appendAssessmentSession,
   buildHistoricalPrior,
   createAssessmentSession,
@@ -21,7 +25,7 @@ import {
 } from "./history-engine";
 
 type Phase = "intro" | "quiz" | "result";
-type AnalysisFilter = "all" | "review" | "secure";
+type AnalysisFilter = "all" | "positive" | "pace" | "review" | "retest";
 
 type AnswerRecord = {
   questionId: string;
@@ -80,26 +84,33 @@ type LearningRecommendation = {
 type AssessmentSession = ReturnType<typeof createAssessmentSession>;
 type HistoricalBaseline = ReturnType<typeof buildHistoricalPrior>;
 
-type QuestionAnalysis = {
+type AnswerObservation = ReturnType<typeof classifyAnswerObservation>;
+
+type QuestionAnalysis = AnswerObservation & {
   answer: AnswerRecord;
   item: Question;
   index: number;
-  status: "穩定命中" | "高難命中" | "命中但可加速" | "需要再確認";
-  tone: "stable" | "challenge" | "slow" | "review";
-  needsReview: boolean;
-  isSlow: boolean;
-  isChallenge: boolean;
-  interrupted: boolean;
   timeLabel: string;
   expectedLabel: string;
-  observation: string;
   routeTitle: "解題流程" | "概念整理" | "重點整理";
   nextAction: string;
 };
 
+const ANALYSIS_LEGEND = [
+  { tone: "stable", icon: "✓", label: "穩定命中", detail: "正確且節奏落在可接受範圍" },
+  { tone: "challenge", icon: "◆", label: "高難命中", detail: "低預估命中率的題目仍答對" },
+  { tone: "boundary", icon: "◎", label: "能力邊界命中", detail: "在目前能力邊界成功命中" },
+  { tone: "efficient", icon: "⚡", label: "快速命中", detail: "正確且速度明顯快於參考" },
+  { tone: "slow", icon: "◷", label: "命中但可加速", detail: "答對，但步驟仍可再濃縮" },
+  { tone: "surprise", icon: "!", label: "高預期失誤", detail: "模型預估較易命中但結果不同" },
+  { tone: "rushed", icon: "↯", label: "快速作答失誤", detail: "速度偏快且答案不同" },
+  { tone: "deliberate", icon: "◇", label: "思考後仍待確認", detail: "花較多時間後仍需回看" },
+  { tone: "review", icon: "?", label: "需要再確認", detail: "單題結果不同，等待複核" },
+] as const;
+
 const BASE_QUESTIONS = 10;
 const MAX_QUESTIONS = 14;
-const BANK_VERSION = "2026-07-15-v2-120-items";
+const BANK_VERSION = "2026-07-16-v3-160-items";
 const RECENT_ITEMS_KEY = "math-scan-recent-items-v4";
 const ASSESSMENT_HISTORY_KEY = "math-scan-assessment-history-v3";
 const THETA_GRID = Array.from({ length: 111 }, (_, index) => 1 + index / 10);
@@ -553,92 +564,68 @@ function timingSignals(answer: AnswerRecord) {
   };
 }
 
-function makeQuestionAnalysis(answer: AnswerRecord, index: number): QuestionAnalysis {
+function makeQuestionAnalysis(
+  answer: AnswerRecord,
+  index: number,
+  previousAnswer: { correct: boolean; selectedChoiceIndex: number } | null,
+): QuestionAnalysis {
   const item = BANK.find((candidate) => candidate.id === answer.questionId)!;
-  const { slow } = timingSignals(answer);
-  const interrupted = answer.elapsedSeconds > answer.targetSeconds * 3;
-  const isSlow = !interrupted && slow >= 0.35;
-  const isChallenge = answer.correct && answer.expectedCorrectProbability < 0.55;
-  const ratio = answer.targetSeconds > 0 ? answer.elapsedSeconds / answer.targetSeconds : 1;
-
-  let status: QuestionAnalysis["status"];
-  let tone: QuestionAnalysis["tone"];
-  let observation: string;
-  if (!answer.correct) {
-    status = "需要再確認";
-    tone = "review";
-    observation = interrupted
-      ? "本題答案與參考答案不同，且計時可能包含頁面閒置；本題只用正誤作為能力證據，不判讀作答速度。"
-      : isSlow
-        ? "花費較多時間後，本題答案仍與參考答案不同；可先確認概念連結或方法選擇，不由單題推定整個領域尚未掌握。"
-        : ratio < 0.6
-          ? "作答速度較快，但答案與參考答案不同；先重新確認題目條件與所求，再檢查方法。"
-          : "本題答案與參考答案不同。這是一個值得回看的單題訊號，不代表整個領域尚未掌握。";
-  } else if (isChallenge) {
-    status = "高難命中";
-    tone = "challenge";
-    observation = interrupted
-      ? `在作答前預估命中率約 ${Math.round(answer.expectedCorrectProbability * 100)}% 的挑戰題仍成功命中；計時可能包含頁面閒置，因此不以速度判讀。`
-      : isSlow
-        ? `在作答前預估命中率約 ${Math.round(answer.expectedCorrectProbability * 100)}% 的挑戰題仍成功命中，但耗時較長；可保留完整理由，再練習濃縮步驟。`
-        : `在作答前預估命中率約 ${Math.round(answer.expectedCorrectProbability * 100)}% 的挑戰題仍成功命中，顯示你能把既有方法延伸到較高難度。`;
-  } else if (interrupted) {
-    status = "穩定命中";
-    tone = "stable";
-    observation = "答案與關鍵觀念一致；計時可能包含頁面閒置，因此本題不以速度判讀。";
-  } else if (isSlow) {
-    status = "命中但可加速";
-    tone = "slow";
-    observation = `答案正確；有效作答時間約為參考時間的 ${ratio.toFixed(1)} 倍，可再整理步驟以提升穩定度與效率。`;
-  } else {
-    status = "穩定命中";
-    tone = "stable";
-    observation = "答案與關鍵觀念一致，作答時間也落在可接受範圍；可用變化題確認是否能穩定轉移。";
-  }
-
-  if (answer.previouslySeen) {
-    observation += " 此題曾在歷次評量出現，本輪只保留最新作答並降低證據權重，避免熟題把結果虛高。";
-  }
-
-  const needsReview = !answer.correct || isSlow || interrupted;
+  const signal = classifyAnswerObservation({
+    correct: answer.correct,
+    elapsedSeconds: answer.elapsedSeconds,
+    targetSeconds: answer.targetSeconds,
+    expectedCorrectProbability: answer.expectedCorrectProbability,
+    previouslySeen: answer.previouslySeen,
+    selectedChoiceIndex: answer.selectedChoiceIndex,
+    previousCorrect: previousAnswer?.correct ?? null,
+    previousSelectedChoiceIndex: previousAnswer?.selectedChoiceIndex ?? null,
+  });
   const routeTitle: QuestionAnalysis["routeTitle"] = answer.format === "reasoning" || answer.format === "application"
     ? "解題流程"
     : answer.format === "concept" || answer.format === "data"
       ? "概念整理"
       : "重點整理";
   let nextAction: string;
-  if (!answer.correct && (answer.format === "reasoning" || answer.format === "application")) {
+  if (signal.isUnexpectedMiss) {
+    nextAction = "先不更換整套方法，重新核對題目條件、所求與最後一步，再用一題同技能變式判斷是否只是單題落差。";
+  } else if (!answer.correct && signal.isRushed) {
+    nextAction = "先把題目條件與所求各寫一行，再重新選擇方法；完成後檢查是否漏看限制、符號或單位。";
+  } else if (!answer.correct && (answer.format === "reasoning" || answer.format === "application")) {
     nextAction = "先寫下要求與已知，再補出中間關係；逐步推導後用代入或反向檢查驗證。";
   } else if (!answer.correct && (answer.format === "concept" || answer.format === "data")) {
     nextAction = "先不計算，把題意改成圖、表格、數線或生活語言，再整理成正式關係。";
   } else if (!answer.correct) {
     nextAction = "先辨認題型與適用條件，再按固定步驟代入；最後檢查符號、單位與答案範圍。";
-  } else if (isSlow) {
+  } else if (signal.isSlow) {
     nextAction = "保留目前正確方法，將步驟濃縮成 3–5 個檢查點，再完成一題同型變化題。";
-  } else if (isChallenge) {
+  } else if (signal.isChallenge || signal.isBoundary) {
     nextAction = "嘗試說明每一步使用的理由，再做一題條件略有改變的題目確認理解。";
+  } else if (signal.isRushed) {
+    nextAction = "做一題同技能但不同數值或表示方式的未見題；若仍能快速說明理由，才視為穩定效率。";
   } else {
     nextAction = "完成一題不同表示方式的變化題，並用一句話說明為什麼這個方法成立。";
   }
 
   return {
+    ...signal,
     answer,
     item,
     index,
-    status,
-    tone,
-    needsReview,
-    isSlow,
-    isChallenge,
-    interrupted,
-    timeLabel: interrupted
+    timeLabel: signal.interrupted
       ? `${answer.elapsedSeconds} 秒（計時可能中斷，不納入速度判斷）`
       : `${answer.elapsedSeconds} 秒／參考 ${answer.targetSeconds} 秒`,
     expectedLabel: `${Math.round(answer.expectedCorrectProbability * 100)}%`,
-    observation,
     routeTitle,
     nextAction,
   };
+}
+
+function matchesAnalysisFilter(analysis: QuestionAnalysis, filter: AnalysisFilter) {
+  if (filter === "positive") return analysis.answer.correct;
+  if (filter === "pace") return analysis.hasPaceSignal;
+  if (filter === "review") return analysis.needsReview;
+  if (filter === "retest") return analysis.hasRetestSignal || analysis.answer.previouslySeen;
+  return true;
 }
 
 function trendLabel(currentAbility: number, previousAbility: number | null) {
@@ -939,8 +926,13 @@ export default function Home() {
   );
   const historySummary = useMemo(() => summarizeAssessmentHistory(assessmentHistory), [assessmentHistory]);
   const questionAnalyses = useMemo(
-    () => quizState.answers.map((answer, index) => makeQuestionAnalysis(answer, index)),
-    [quizState.answers],
+    () => quizState.answers.map((answer, index) => {
+      const previousAnswer = usesHistory
+        ? findLatestHistoricalAnswer(assessmentHistory, answer.questionId, reportId)
+        : null;
+      return makeQuestionAnalysis(answer, index, previousAnswer);
+    }),
+    [assessmentHistory, quizState.answers, reportId, usesHistory],
   );
   const previousSession = useMemo(
     () => usesHistory
@@ -1169,7 +1161,7 @@ export default function Home() {
       `階段建議：${stageAdvice(result.levelIndex)}`,
       "",
       "每題分析",
-      ...questionAnalyses.map((analysis) => `${analysis.index + 1}. [${TOPIC_LABELS[analysis.item.topic]}／${LEVELS[analysis.item.level - 1].short}／${FORMAT_LABELS[analysis.item.format]}] ${analysis.item.prompt}\n   狀態：${analysis.status}${analysis.answer.previouslySeen ? "／重複題已降權" : ""}\n   我的答案：${analysis.answer.selected}\n   參考答案：${analysis.answer.correctAnswer}\n   作答時間：${analysis.timeLabel}\n   作答前預估命中率：${analysis.expectedLabel}\n   證據權重：${analysis.answer.evidenceWeight.toFixed(2)}\n   判讀依據：${analysis.observation}\n   快速檢查：${analysis.answer.rationale}\n   下一步：${analysis.routeTitle}｜${analysis.nextAction}`),
+      ...questionAnalyses.map((analysis) => `${analysis.index + 1}. [${TOPIC_LABELS[analysis.item.topic]}／${LEVELS[analysis.item.level - 1].short}／${FORMAT_LABELS[analysis.item.format]}] ${analysis.item.prompt}\n   主狀態：${analysis.status}\n   輔助訊號：${analysis.chips.length ? analysis.chips.map((chip) => chip.label).join("／") : "無"}\n   我的答案：${analysis.answer.selected}\n   參考答案：${analysis.answer.correctAnswer}\n   作答時間：${analysis.timeLabel}\n   作答前預估命中率：${analysis.expectedLabel}\n   證據權重：${analysis.answer.evidenceWeight.toFixed(2)}\n   判讀依據：${analysis.observation}\n   快速檢查：${analysis.answer.rationale}\n   下一步：${analysis.routeTitle}｜${analysis.nextAction}`),
       "",
       "說明：本診斷僅供自我了解與學習規劃，不等同學校成績、正式檢定、入學資格或學位認證。",
     ];
@@ -1429,7 +1421,7 @@ export default function Home() {
                   <div><span>結果穩定度</span><strong>{result.confidence}</strong></div>
                   <div><span>能力值</span><strong>{result.ability.toFixed(1)} / 12</strong></div>
                 </div>
-                <p className="evidence-note">綜合證據集中於 {LEVELS[levelIndexFromTheta(result.low)].short} 到 {LEVELS[levelIndexFromTheta(result.high)].short}。歷史只作弱先驗，本次 14–16 題仍可推動或修正結果；估計區間不代表能力上限。</p>
+                <p className="evidence-note">綜合證據集中於 {LEVELS[levelIndexFromTheta(result.low)].short} 到 {LEVELS[levelIndexFromTheta(result.high)].short}。歷史只作弱先驗，本次作答仍可推動或修正結果；估計區間不代表能力上限。</p>
               </section>
 
               <section className="history-card pixel-panel">
@@ -1497,17 +1489,36 @@ export default function Home() {
                   <div><div className="panel-kicker">ITEM AUDIT</div><h2>每題分析</h2></div>
                   <span>完整呈現 {quizState.answers.length} 題 · 保留原作答順序</span>
                 </div>
-                <p className="item-analysis-note">判讀只描述可觀察的作答訊號，不推測真正思考原因。慢速表示超過參考時間；超過三倍視為可能閒置，不納入速度判斷。</p>
+                <p className="item-analysis-note">判讀只描述可觀察的作答訊號，不推測真正思考原因。低於參考時間 0.6 倍標示偏快，達 1.3 倍標示慢速；超過三倍視為可能閒置，不納入速度判斷。</p>
+                <div className="analysis-legend" aria-label="答題狀態色彩圖例">
+                  <div className="analysis-legend-heading">
+                    <strong>狀態色譜</strong>
+                    <span>主色代表本題最重要的可觀察訊號；小標籤補充速度與跨次證據。</span>
+                  </div>
+                  <ul>
+                    {ANALYSIS_LEGEND.map((entry) => {
+                      const count = questionAnalyses.filter((analysis) => analysis.tone === entry.tone).length;
+                      return (
+                        <li className={`legend-${entry.tone}`} key={entry.tone}>
+                          <i aria-hidden="true">{entry.icon}</i>
+                          <span><strong>{entry.label}</strong><small>{entry.detail}</small></span>
+                          <b aria-label={`${entry.label} ${count} 題`}>{count}</b>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
                 <div className="item-filter-bar screen-only" role="toolbar" aria-label="篩選每題分析">
                   <button type="button" aria-pressed={analysisFilter === "all"} onClick={() => setAnalysisFilter("all")}>全部 <b>{questionAnalyses.length}</b></button>
+                  <button type="button" aria-pressed={analysisFilter === "positive"} onClick={() => setAnalysisFilter("positive")}>命中訊號 <b>{questionAnalyses.filter((analysis) => analysis.answer.correct).length}</b></button>
+                  <button type="button" aria-pressed={analysisFilter === "pace"} onClick={() => setAnalysisFilter("pace")}>速度訊號 <b>{questionAnalyses.filter((analysis) => analysis.hasPaceSignal).length}</b></button>
                   <button type="button" aria-pressed={analysisFilter === "review"} onClick={() => setAnalysisFilter("review")}>需要回看 <b>{questionAnalyses.filter((analysis) => analysis.needsReview).length}</b></button>
-                  <button type="button" aria-pressed={analysisFilter === "secure"} onClick={() => setAnalysisFilter("secure")}>穩定／挑戰命中 <b>{questionAnalyses.filter((analysis) => analysis.answer.correct && !analysis.needsReview).length}</b></button>
+                  <button type="button" aria-pressed={analysisFilter === "retest"} onClick={() => setAnalysisFilter("retest")}>跨次訊號 <b>{questionAnalyses.filter((analysis) => analysis.hasRetestSignal || analysis.answer.previouslySeen).length}</b></button>
                 </div>
+                <p className="analysis-filter-result screen-only" aria-live="polite">目前顯示 {questionAnalyses.filter((analysis) => matchesAnalysisFilter(analysis, analysisFilter)).length}／{questionAnalyses.length} 題；列印仍會包含全部題目。</p>
                 <div className="item-analysis-list">
                   {questionAnalyses.map((analysis) => {
-                    const matchesFilter = analysisFilter === "all"
-                      || (analysisFilter === "review" && analysis.needsReview)
-                      || (analysisFilter === "secure" && analysis.answer.correct && !analysis.needsReview);
+                    const matchesFilter = matchesAnalysisFilter(analysis, analysisFilter);
                     return (
                       <details
                         className={`item-analysis-entry state-${analysis.tone} ${matchesFilter ? "" : "is-filtered-out"}`}
@@ -1521,10 +1532,10 @@ export default function Home() {
                         </span>
                         <span className="item-statuses">
                           <span className={analysis.answer.correct ? "status-correct" : "status-incorrect"}>{analysis.answer.correct ? "正確" : "錯誤"}</span>
-                          {analysis.isSlow && <span className="status-slow">慢速</span>}
-                          {analysis.isChallenge && <span className="status-hard">高難命中</span>}
-                          {analysis.interrupted && <span className="status-paused">時間不判讀</span>}
-                          {analysis.answer.previouslySeen && <span className="status-repeat">重複題降權</span>}
+                          <span className={`status-primary signal-${analysis.tone}`}><i aria-hidden="true">{analysis.icon}</i>{analysis.status}</span>
+                          {analysis.chips.map((chip) => (
+                            <span className={`status-secondary signal-${chip.tone}`} key={`${chip.tone}-${chip.label}`}><i aria-hidden="true">{chip.icon}</i>{chip.label}</span>
+                          ))}
                         </span>
                         <i className="item-chevron" aria-hidden="true" />
                       </summary>

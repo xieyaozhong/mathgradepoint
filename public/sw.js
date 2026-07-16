@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "math-scan-pwa";
-const CACHE_VERSION = "v8-multiscan-20260715";
+const CACHE_VERSION = "v9-signals-20260716";
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 const APP_ROOT = new URL(self.registration.scope);
 const APP_SHELL = [
@@ -9,7 +9,7 @@ const APP_SHELL = [
   "./app-icon-192.jpg",
   "./icon.svg",
   "./icon-maskable.svg",
-  "./og.png",
+  "./og-signals.png",
 ];
 
 function resolveFromScope(path) {

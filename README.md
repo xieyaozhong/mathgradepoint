@@ -4,7 +4,7 @@
 
 ## 評量特色
 
-- 120 題題庫，每個能力級別配置 10 題
+- 160 題題庫，每個能力級別至少配置 12 題
 - 計算、情境應用、資料判讀、推理與概念辨析交錯出題
 - Bayesian 難度校準、領域／題型輪替，以及跨次新題優先
 - 標準流程為 10 題；只有能力區間過寬、取樣覆蓋不足、前後段波動或表現明顯偏離預估時，才追加校正題
@@ -86,7 +86,8 @@ npm run build
 - `public/manifest.webmanifest`：PWA 安裝資訊
 - `public/sw.js`：離線快取與更新策略
 - `public/icon.svg`、`public/icon-maskable.svg`：一般與遮罩式 App 圖示
-- `public/og.png`：社群分享預覽圖與 Apple 主畫面圖示備援
+- `public/og-signals.png`：彩色答題觀察版本的社群分享預覽圖
+- `public/og.png`：舊版分享圖與 Apple 主畫面圖示備援
 
 ## 評量聲明
 
